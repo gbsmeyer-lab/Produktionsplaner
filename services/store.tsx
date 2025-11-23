@@ -1,7 +1,19 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { InventoryItem, ShootPlan, Booking, BookingItem, CustomItem } from '../types';
 import { INITIAL_INVENTORY } from '../constants';
+import { db } from './firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  writeBatch,
+  query,
+  where,
+  getDocs
+} from 'firebase/firestore';
 
 interface AppState {
   inventory: InventoryItem[];
@@ -9,6 +21,7 @@ interface AppState {
   bookings: Booking[];
   isAdmin: boolean;
   isDarkMode: boolean;
+  isLoading: boolean;
 }
 
 interface AppContextType extends AppState {
@@ -27,56 +40,80 @@ interface AppContextType extends AppState {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [shootPlans, setShootPlans] = useState<ShootPlan[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  // Default to Dark Mode (true)
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load from local storage on mount
+  // --- Real-time Listeners (Firebase) ---
   useEffect(() => {
-    const savedPlans = localStorage.getItem('shootPlans');
-    const savedBookings = localStorage.getItem('bookings');
-    const savedInventory = localStorage.getItem('inventory');
-    
-    if (savedInventory) {
-       const parsedSavedInv = JSON.parse(savedInventory) as InventoryItem[];
-       const mergedInventory = INITIAL_INVENTORY.map(initItem => {
-         const savedItem = parsedSavedInv.find(s => s.id === initItem.id);
-         if (savedItem) {
-           return { ...initItem, maintenanceNotes: savedItem.maintenanceNotes };
-         }
-         return initItem;
-       });
-       const customCreatedItems = parsedSavedInv.filter(s => s.id.startsWith('new-'));
-       setInventory([...mergedInventory, ...customCreatedItems]);
-    } else {
-       setInventory(INITIAL_INVENTORY);
-    }
-    
-    const savedTheme = localStorage.getItem('theme');
+    // 1. Listen to Inventory
+    const unsubInventory = onSnapshot(collection(db, "inventory"), (snapshot) => {
+      const items: InventoryItem[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as InventoryItem);
+      });
+      
+      // Seed DB if empty (First run only)
+      if (items.length === 0 && !snapshot.metadata.fromCache) {
+         seedInventory();
+      } else {
+         // Sort roughly by category to keep UI consistent
+         items.sort((a, b) => a.category.localeCompare(b.category));
+         setInventory(items);
+      }
+    });
 
-    if (savedPlans) setShootPlans(JSON.parse(savedPlans));
-    if (savedBookings) setBookings(JSON.parse(savedBookings));
-    
-    // Logic: If explicit 'light', set light. Otherwise default to dark (handled by init state true)
+    // 2. Listen to ShootPlans
+    const unsubPlans = onSnapshot(collection(db, "shootPlans"), (snapshot) => {
+      const items: ShootPlan[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as ShootPlan);
+      });
+      // Sort by newest first
+      items.sort((a, b) => b.createdAt - a.createdAt);
+      setShootPlans(items);
+    });
+
+    // 3. Listen to Bookings
+    const unsubBookings = onSnapshot(collection(db, "bookings"), (snapshot) => {
+      const items: Booking[] = [];
+      snapshot.forEach((doc) => {
+        items.push(doc.data() as Booking);
+      });
+      setBookings(items);
+      setIsLoading(false);
+    });
+
+    // Theme handling (Local only)
+    const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
       setIsDarkMode(false);
       document.documentElement.classList.remove('dark');
     } else {
-      // Default or explicit dark
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
     }
+
+    return () => {
+      unsubInventory();
+      unsubPlans();
+      unsubBookings();
+    };
   }, []);
 
-  // Save to local storage on change
-  useEffect(() => {
-    localStorage.setItem('shootPlans', JSON.stringify(shootPlans));
-    localStorage.setItem('bookings', JSON.stringify(bookings));
-    localStorage.setItem('inventory', JSON.stringify(inventory));
-  }, [shootPlans, bookings, inventory]);
+  // Helper to seed the database if it's empty
+  const seedInventory = async () => {
+    console.log("Seeding Database with initial inventory...");
+    const batch = writeBatch(db);
+    INITIAL_INVENTORY.forEach(item => {
+      const ref = doc(db, "inventory", item.id);
+      batch.set(ref, item);
+    });
+    await batch.commit();
+  };
 
   const toggleTheme = () => {
     setIsDarkMode(prev => {
@@ -92,17 +129,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  const addInventoryItem = (item: InventoryItem) => {
-    setInventory(prev => [...prev, item]);
+  // --- Actions (Write to Firebase) ---
+
+  const addInventoryItem = async (item: InventoryItem) => {
+    // Optimistic UI updates are handled by the listener automatically
+    await setDoc(doc(db, "inventory", item.id), item);
   };
 
-  const updateInventoryItem = (updatedItem: InventoryItem) => {
-    setInventory(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+  const updateInventoryItem = async (updatedItem: InventoryItem) => {
+    await setDoc(doc(db, "inventory", updatedItem.id), updatedItem);
   };
 
-  const createShootPlan = (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
-    setShootPlans(prev => [...prev, plan]);
+  const createShootPlan = async (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
+    const batch = writeBatch(db);
 
+    // 1. Create Shoot Plan
+    const planRef = doc(db, "shootPlans", plan.id);
+    batch.set(planRef, plan);
+
+    // 2. Create Booking
     const bookingItems: BookingItem[] = requestedItems.map(req => ({
       itemId: req.itemId,
       requestedCount: req.count,
@@ -120,20 +165,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       status: 'pending'
     };
 
-    setBookings(prev => [...prev, newBooking]);
+    const bookingRef = doc(db, "bookings", newBooking.id);
+    batch.set(bookingRef, newBooking);
+
+    await batch.commit();
   };
 
-  const updateBooking = (updatedBooking: Booking) => {
-    setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+  const updateBooking = async (updatedBooking: Booking) => {
+    await setDoc(doc(db, "bookings", updatedBooking.id), updatedBooking);
   };
 
-  const deleteBooking = (bookingId: string) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
+  const deleteBooking = async (bookingId: string) => {
+    await deleteDoc(doc(db, "bookings", bookingId));
   };
 
-  const deleteShootPlan = (planId: string) => {
-    setShootPlans(prev => prev.filter(p => p.id !== planId));
-    setBookings(prev => prev.filter(b => b.planId !== planId));
+  const deleteShootPlan = async (planId: string) => {
+    const batch = writeBatch(db);
+    
+    // Delete the plan
+    batch.delete(doc(db, "shootPlans", planId));
+
+    // Find and delete associated bookings
+    const associatedBookings = bookings.filter(b => b.planId === planId);
+    associatedBookings.forEach(b => {
+      batch.delete(doc(db, "bookings", b.id));
+    });
+
+    await batch.commit();
   };
 
   const loginAdmin = () => setIsAdmin(true);
@@ -162,6 +220,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       bookings,
       isAdmin,
       isDarkMode,
+      isLoading,
       addInventoryItem,
       updateInventoryItem,
       createShootPlan,
