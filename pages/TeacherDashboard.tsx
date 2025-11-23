@@ -4,7 +4,7 @@ import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
 import { SignatureCanvas } from '../components/SignatureCanvas';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, FileText, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool } from 'lucide-react';
+import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool } from 'lucide-react';
 
 export const TeacherDashboard: React.FC = () => {
   const { bookings, shootPlans, inventory, updateBooking, deleteShootPlan, addInventoryItem, updateInventoryItem, getAvailableCount } = useApp();
