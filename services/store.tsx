@@ -45,15 +45,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Real-time Listeners (Firebase) ---
   useEffect(() => {
+    // Capture db in a local variable for Type narrowing
+    const firestore = db;
+
     // Safety Check: If DB is not connected (e.g. missing API keys), stop loading to show UI (empty state)
-    if (!db) {
+    if (!firestore) {
         console.error("Database connection not established. Check API Keys.");
         setIsLoading(false);
         return;
     }
 
     // 1. Listen to Inventory
-    const unsubInventory = onSnapshot(collection(db, "inventory"), (snapshot) => {
+    const unsubInventory = onSnapshot(collection(firestore, "inventory"), (snapshot) => {
       const items: InventoryItem[] = [];
       snapshot.forEach((doc) => {
         items.push(doc.data() as InventoryItem);
@@ -70,7 +73,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // 2. Listen to ShootPlans
-    const unsubPlans = onSnapshot(collection(db, "shootPlans"), (snapshot) => {
+    const unsubPlans = onSnapshot(collection(firestore, "shootPlans"), (snapshot) => {
       const items: ShootPlan[] = [];
       snapshot.forEach((doc) => {
         items.push(doc.data() as ShootPlan);
@@ -81,7 +84,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // 3. Listen to Bookings
-    const unsubBookings = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const unsubBookings = onSnapshot(collection(firestore, "bookings"), (snapshot) => {
       const items: Booking[] = [];
       snapshot.forEach((doc) => {
         items.push(doc.data() as Booking);
@@ -109,11 +112,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Helper to seed the database if it's empty
   const seedInventory = async () => {
-    if (!db) return;
+    const firestore = db;
+    if (!firestore) return;
+
     console.log("Seeding Database with initial inventory...");
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestore);
     INITIAL_INVENTORY.forEach(item => {
-      const ref = doc(db!, "inventory", item.id);
+      const ref = doc(firestore, "inventory", item.id);
       batch.set(ref, item);
     });
     await batch.commit();
@@ -136,22 +141,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- Actions (Write to Firebase) ---
 
   const addInventoryItem = async (item: InventoryItem) => {
-    if (!db) return;
+    const firestore = db;
+    if (!firestore) return;
     // Optimistic UI updates are handled by the listener automatically
-    await setDoc(doc(db, "inventory", item.id), item);
+    await setDoc(doc(firestore, "inventory", item.id), item);
   };
 
   const updateInventoryItem = async (updatedItem: InventoryItem) => {
-    if (!db) return;
-    await setDoc(doc(db, "inventory", updatedItem.id), updatedItem);
+    const firestore = db;
+    if (!firestore) return;
+    await setDoc(doc(firestore, "inventory", updatedItem.id), updatedItem);
   };
 
   const createShootPlan = async (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
-    if (!db) return;
-    const batch = writeBatch(db);
+    const firestore = db;
+    if (!firestore) return;
+    
+    const batch = writeBatch(firestore);
 
     // 1. Create Shoot Plan
-    const planRef = doc(db, "shootPlans", plan.id);
+    const planRef = doc(firestore, "shootPlans", plan.id);
     batch.set(planRef, plan);
 
     // 2. Create Booking
@@ -172,33 +181,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       status: 'pending'
     };
 
-    const bookingRef = doc(db, "bookings", newBooking.id);
+    const bookingRef = doc(firestore, "bookings", newBooking.id);
     batch.set(bookingRef, newBooking);
 
     await batch.commit();
   };
 
   const updateBooking = async (updatedBooking: Booking) => {
-    if (!db) return;
-    await setDoc(doc(db, "bookings", updatedBooking.id), updatedBooking);
+    const firestore = db;
+    if (!firestore) return;
+    await setDoc(doc(firestore, "bookings", updatedBooking.id), updatedBooking);
   };
 
   const deleteBooking = async (bookingId: string) => {
-    if (!db) return;
-    await deleteDoc(doc(db, "bookings", bookingId));
+    const firestore = db;
+    if (!firestore) return;
+    await deleteDoc(doc(firestore, "bookings", bookingId));
   };
 
   const deleteShootPlan = async (planId: string) => {
-    if (!db) return;
-    const batch = writeBatch(db);
+    const firestore = db;
+    if (!firestore) return;
+    
+    const batch = writeBatch(firestore);
     
     // Delete the plan
-    batch.delete(doc(db, "shootPlans", planId));
+    batch.delete(doc(firestore, "shootPlans", planId));
 
     // Find and delete associated bookings
     const associatedBookings = bookings.filter(b => b.planId === planId);
     associatedBookings.forEach(b => {
-      batch.delete(doc(db, "bookings", b.id));
+      batch.delete(doc(firestore, "bookings", b.id));
     });
 
     await batch.commit();
