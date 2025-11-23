@@ -477,8 +477,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-slate-700/50 border-b dark:border-slate-700 text-gray-500 dark:text-gray-400">
-                    <th className="p-3 font-medium w-1/2">Gerät / Bezeichnung</th>
-                    <th className="p-3 font-medium hidden sm:table-cell">Kategorie</th>
+                    <th className="p-3 font-medium hidden sm:table-cell w-32">Kategorie</th>
+                    <th className="p-3 font-medium">Gerät / Bezeichnung</th>
                     <th className="p-3 font-medium text-center w-24">Verfügbar</th>
                     <th className="p-3 font-medium text-right w-32">Auswahl</th>
                   </tr>
@@ -495,7 +495,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                       
                       return (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="p-3">
+                          <td className="p-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell align-top">{item.category}</td>
+                          <td className="p-3 align-top">
                             <div className="flex items-center gap-2">
                               <span className={`font-medium ${available === 0 ? 'text-gray-400 dark:text-gray-500' : 'text-slate-900 dark:text-slate-200'}`}>
                                 {item.name}
@@ -511,8 +512,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                               )}
                             </div>
                           </td>
-                          <td className="p-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{item.category}</td>
-                          <td className="p-3 text-center">
+                          <td className="p-3 text-center align-top">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                               available > 0 
                                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
@@ -521,7 +521,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                               {available}
                             </span>
                           </td>
-                          <td className="p-3">
+                          <td className="p-3 align-top">
                             <div className="flex items-center justify-end gap-2">
                               {inCart > 0 && <span className="font-bold text-slate-900 dark:text-white mr-2">{inCart}</span>}
                               <button 
