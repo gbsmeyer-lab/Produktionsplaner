@@ -51,6 +51,7 @@ export interface GroupMember {
 
 export interface ShootPlan {
   id: string;
+  editCode?: string; // New: Code to reload/edit the plan
   className: string; // Changed from ClassName to string to allow custom input
   projectType: string; // Changed from ProjectType to string to allow custom input
   projectTopic?: string; // New: Topic / Working Title

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { InventoryItem, ShootPlan, Booking, BookingItem, CustomItem } from '../types';
 import { INITIAL_INVENTORY } from '../constants';
@@ -20,16 +21,24 @@ interface AppState {
   isLoading: boolean;
 }
 
+interface LoadResult {
+  plan?: ShootPlan;
+  booking?: Booking;
+  error?: string;
+}
+
 interface AppContextType extends AppState {
   addInventoryItem: (item: InventoryItem) => void;
   updateInventoryItem: (item: InventoryItem) => void;
   createShootPlan: (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => void;
+  updateFullPlan: (planId: string, bookingId: string, plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => void;
   updateBooking: (booking: Booking) => void;
   deleteBooking: (bookingId: string) => void;
   deleteShootPlan: (planId: string) => void;
   loginAdmin: () => void;
   logoutAdmin: () => void;
-  getAvailableCount: (itemId: string) => number;
+  getAvailableCount: (itemId: string, excludeBookingId?: string) => number;
+  loadPlanByCode: (code: string) => LoadResult;
   toggleTheme: () => void;
 }
 
@@ -220,6 +229,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await batch.commit();
   };
 
+  const updateFullPlan = async (planId: string, bookingId: string, plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
+    const firestore = db;
+    
+    // Retrieve existing booking to preserve handedOutCount/returnedCount if any (edge case)
+    const existingBooking = bookings.find(b => b.id === bookingId);
+    
+    // Merge new requested items with existing status
+    const bookingItems: BookingItem[] = requestedItems.map(req => {
+      const existingItem = existingBooking?.items.find(i => i.itemId === req.itemId);
+      return {
+        itemId: req.itemId,
+        requestedCount: req.count,
+        handedOutCount: existingItem ? existingItem.handedOutCount : 0,
+        returnedCount: existingItem ? existingItem.returnedCount : 0,
+        specificIds: existingItem ? existingItem.specificIds : [],
+        notes: existingItem ? existingItem.notes : ''
+      };
+    });
+
+    const updatedBooking: Booking = {
+      id: bookingId,
+      planId: planId,
+      items: bookingItems,
+      customItems,
+      status: existingBooking ? existingBooking.status : 'pending',
+      signature: existingBooking?.signature,
+      handoutDate: existingBooking?.handoutDate
+    };
+
+    if (!firestore) {
+        // Local Fallback
+        setShootPlans(prev => prev.map(p => p.id === planId ? plan : p));
+        setBookings(prev => prev.map(b => b.id === bookingId ? updatedBooking : b));
+        return;
+    }
+
+    const batch = writeBatch(firestore);
+    batch.set(doc(firestore, "shootPlans", planId), plan);
+    batch.set(doc(firestore, "bookings", bookingId), updatedBooking);
+    await batch.commit();
+  };
+
   const updateBooking = async (updatedBooking: Booking) => {
     const firestore = db;
     if (!firestore) {
@@ -266,11 +317,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loginAdmin = () => setIsAdmin(true);
   const logoutAdmin = () => setIsAdmin(false);
 
-  const getAvailableCount = (itemId: string) => {
+  const getAvailableCount = (itemId: string, excludeBookingId?: string) => {
     const item = inventory.find(i => i.id === itemId);
     if (!item) return 0;
     
-    const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'pending');
+    // Filter bookings. If we are editing a booking (excludeBookingId), we don't count its own usage against the total
+    const activeBookings = bookings.filter(b => 
+      (b.status === 'active' || b.status === 'pending') && 
+      b.id !== excludeBookingId
+    );
+
     let used = 0;
     activeBookings.forEach(b => {
       const bItem = b.items.find(i => i.itemId === itemId);
@@ -280,6 +336,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return item.totalStock - used;
+  };
+
+  const loadPlanByCode = (code: string): LoadResult => {
+     if (!code) return { error: "Code leer" };
+     
+     // Case insensitive check
+     const plan = shootPlans.find(p => p.editCode && p.editCode.toUpperCase() === code.toUpperCase());
+     
+     if (!plan) return { error: "Keine Buchung mit diesem Code gefunden." };
+     
+     const booking = bookings.find(b => b.planId === plan.id);
+     if (!booking) return { error: "Keine zugehörige Buchung gefunden." };
+     
+     if (booking.status !== 'pending') {
+         return { error: "Technik wurde bereits ausgegeben oder zurückgenommen. Bearbeitung nicht mehr möglich." };
+     }
+     
+     return { plan, booking };
   };
 
   return (
@@ -293,12 +367,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addInventoryItem,
       updateInventoryItem,
       createShootPlan,
+      updateFullPlan,
       updateBooking,
       deleteBooking,
       deleteShootPlan,
       loginAdmin,
       logoutAdmin,
       getAvailableCount,
+      loadPlanByCode,
       toggleTheme
     }}>
       {children}

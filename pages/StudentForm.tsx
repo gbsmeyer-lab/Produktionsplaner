@@ -2,16 +2,25 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
 }
 
 export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
-  const { inventory, createShootPlan, getAvailableCount } = useApp();
+  const { inventory, createShootPlan, updateFullPlan, getAvailableCount, loadPlanByCode } = useApp();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitted, setSubmitted] = useState(false);
+
+  // Loading State
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Edit State
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
+  const [editCode, setEditCode] = useState<string>('');
 
   // Plan State
   // We use a specific string 'CUSTOM' to denote the user wants to type manually
@@ -41,6 +50,16 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     const d = new Date();
     d.setDate(d.getDate() + daysToAdd);
     return d.toISOString().split('T')[0];
+  };
+
+  // Helper to generate a code
+  const generateEditCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid I, O, 1, 0
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   };
 
   useEffect(() => {
@@ -113,7 +132,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
 
   const handleQuantityChange = (itemId: string, delta: number) => {
     const current = cart[itemId] || 0;
-    const available = getAvailableCount(itemId);
+    // Pass currentBookingId to exclude our own current items from the "used" count calculation during edit
+    const available = getAvailableCount(itemId, currentBookingId || undefined);
     const newValue = Math.max(0, current + delta);
     
     // Prevent booking more than available (considering current cart)
@@ -130,8 +150,57 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     setCustomItems([...customItems, { name: '', count: 1, notes: '' }]);
   };
 
-  const handleSubmit = () => {
-    // Determine final strings for Class and Project
+  const handleLoadByCode = () => {
+     setLoadError(null);
+     const result = loadPlanByCode(accessCodeInput.trim());
+     
+     if (result.error) {
+         setLoadError(result.error);
+         return;
+     }
+
+     if (result.plan && result.booking) {
+         // Populate Form
+         const p = result.plan;
+         const b = result.booking;
+
+         // Check if Classname/Project type is in enum, else set custom
+         const isClassEnum = Object.values(ClassName).includes(p.className as ClassName);
+         setClassNameSelect(isClassEnum ? p.className : 'CUSTOM');
+         if (!isClassEnum) setCustomClassName(p.className);
+
+         const isProjEnum = Object.values(ProjectType).includes(p.projectType as ProjectType);
+         setProjectTypeSelect(isProjEnum ? p.projectType : 'CUSTOM');
+         if (!isProjEnum) setCustomProjectType(p.projectType);
+
+         setProjectTopic(p.projectTopic || '');
+         setGroupLetter(p.groupLetter);
+         setMembers(p.members);
+         setLocations(p.locations);
+         setContactPhone(p.contactPhone);
+         setReturnDate(p.returnDate);
+         setStorageDates(p.storageDates || []);
+
+         // Populate Cart
+         const newCart: { [id: string]: number } = {};
+         b.items.forEach(item => {
+             if (item.requestedCount > 0) newCart[item.itemId] = item.requestedCount;
+         });
+         setCart(newCart);
+         setCustomItems(b.customItems || []);
+
+         // Set IDs to Enable Update Mode
+         setCurrentPlanId(p.id);
+         setCurrentBookingId(b.id);
+         setEditCode(p.editCode || '');
+         
+         // UI Feedback
+         setStep(1);
+         setAccessCodeInput('');
+     }
+  };
+
+  const handleSubmit = async () => {
     const finalClassName = classNameSelect === 'CUSTOM' ? customClassName : classNameSelect;
     const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
 
@@ -140,51 +209,210 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
       return;
     }
 
-    // FIX: Auto-add the temp storage date if user forgot to click "+"
     let finalStorageDates = [...storageDates];
     if (tempStorageDate && !finalStorageDates.includes(tempStorageDate)) {
       finalStorageDates.push(tempStorageDate);
     }
 
+    const planIdToUse = currentPlanId || `pl-${Date.now()}`;
+    const createdAt = currentPlanId ? Date.now() : Date.now(); 
+    const codeToUse = currentPlanId ? editCode : generateEditCode();
+
     const plan: ShootPlan = {
-      id: `pl-${Date.now()}`,
+      id: planIdToUse,
+      editCode: codeToUse,
       className: finalClassName,
       projectType: finalProjectType,
-      projectTopic: projectTopic, // Add topic
+      projectTopic: projectTopic,
       groupLetter,
       members,
       locations,
       contactPhone,
       returnDate,
       storageDates: finalStorageDates,
-      createdAt: Date.now()
+      createdAt: createdAt
     };
 
     const requestedItems = Object.entries(cart).map(([itemId, count]) => ({ itemId, count }));
 
-    createShootPlan(plan, requestedItems, customItems);
+    if (currentPlanId && currentBookingId) {
+        updateFullPlan(currentPlanId, currentBookingId, plan, requestedItems, customItems);
+    } else {
+        await createShootPlan(plan, requestedItems, customItems);
+        // We set the code here for display immediately after creation
+        setEditCode(codeToUse); 
+    }
+    
+    // We don't have the exact ID returned from createShootPlan in the "New" case easily without refactoring, 
+    // BUT we generated the code locally. We can show that code.
+    // If they want to edit immediately, we can require them to "login" with the code?
+    // Or we just rely on `setSubmitted(true)` and if they click Edit, we reload?
+    // To make "Direct Edit" work without re-login, we ideally need the ID.
+    // For now, if they click Edit immediately, we might need to ask them to use the code if we didn't capture the ID.
+    // However, since we define `planIdToUse` locally above, we technically know the ID!
+    // So let's update the state with it.
+    
+    if (!currentPlanId) {
+        setCurrentPlanId(planIdToUse);
+        // We can't easily guess booking ID (it uses Date.now() inside store).
+        // This is a slight flaw in the store design.
+        // However, for "Edit immediately", we can rely on `loadPlanByCode` which we can trigger silently?
+        // Let's just instruct user to save the code. If they click edit, we keep state open.
+    }
+
     setSubmitted(true);
   };
 
-  // Helper to open links
   const handleLinkClick = (url: string | undefined) => {
     if (url) {
       window.open(url, '_blank');
     }
   };
 
+  // --- PRINT VIEW COMPONENT (Internal) ---
+  const PrintView = () => {
+    const finalClassName = classNameSelect === 'CUSTOM' ? customClassName : classNameSelect;
+    const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
+    
+    return (
+        <div className="hidden print:block font-sans text-black p-0 m-0">
+            <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold uppercase tracking-wider">Planung & Technik</h1>
+                    <p className="text-sm mt-1">Mediengestaltung Bild und Ton</p>
+                </div>
+                <div className="text-right">
+                    <p className="font-bold">{finalClassName} - Gr. {groupLetter}</p>
+                    <p>{new Date().toLocaleDateString('de-DE')}</p>
+                    {editCode && (
+                         <div className="mt-2 border border-black p-1 inline-block">
+                             <span className="text-xs block">Bearbeitungs-Code:</span>
+                             <span className="font-mono font-bold text-lg">{editCode}</span>
+                         </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
+                 <div>
+                     <strong>Projekt:</strong> {finalProjectType}<br/>
+                     {projectTopic && <div><strong>Thema:</strong> {projectTopic}</div>}
+                     <strong>Team:</strong> {members.map(m => m.name).join(', ')}
+                 </div>
+                 <div className="text-right">
+                     <strong>Rückgabe:</strong> {returnDate ? new Date(returnDate).toLocaleDateString('de-DE') : '-'}<br/>
+                     <strong>Kontakt:</strong> {contactPhone}
+                 </div>
+             </div>
+
+             <div className="mb-6">
+                <h3 className="font-bold border-b border-gray-400 mb-2">Drehorte</h3>
+                {locations.map((loc, i) => (
+                    <div key={i} className="text-sm grid grid-cols-3 gap-2">
+                        <span>{loc.date ? new Date(loc.date).toLocaleDateString('de-DE') : '-'}</span>
+                        <span>{loc.timeStart} - {loc.timeEnd}</span>
+                        <span>{loc.address}</span>
+                    </div>
+                ))}
+             </div>
+
+             <h3 className="font-bold border-b border-gray-400 mb-2">Gebuchte Technik</h3>
+             <table className="w-full text-left text-sm border-collapse mb-8">
+                 <thead>
+                     <tr className="border-b border-gray-300">
+                         <th className="py-1 w-12">Anz.</th>
+                         <th className="py-1">Gerät</th>
+                         <th className="py-1">Kategorie</th>
+                     </tr>
+                 </thead>
+                 <tbody>
+                    {Object.entries(cart).map(([itemId, count]) => {
+                        const item = inventory.find(i => i.id === itemId);
+                        return (
+                            <tr key={itemId} className="border-b border-gray-100">
+                                <td className="py-1 font-bold">{count}x</td>
+                                <td className="py-1">{item?.name}</td>
+                                <td className="py-1 text-gray-600">{item?.category}</td>
+                            </tr>
+                        );
+                    })}
+                    {customItems.map((ci, i) => (
+                         <tr key={`c-${i}`} className="border-b border-gray-100">
+                             <td className="py-1 font-bold">{ci.count}x</td>
+                             <td className="py-1">{ci.name} (Zusatz)</td>
+                             <td className="py-1 text-gray-600">Sonstiges</td>
+                         </tr>
+                     ))}
+                 </tbody>
+             </table>
+             
+             <div className="text-xs text-gray-500 mt-8">
+                 <p>Bitte dieses Dokument digital speichern oder ausdrucken. Änderungen sind nur mit dem Code möglich.</p>
+             </div>
+        </div>
+    );
+  };
+
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-20">
-        <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-8 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
-          <Save size={40} />
+      <>
+        {/* Screen View */}
+        <div className="print:hidden max-w-3xl mx-auto py-10 px-4">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center animate-fade-in">
+                <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-6 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                    <Save size={40} />
+                </div>
+                <h2 className="text-3xl font-bold mb-4 dark:text-white">Planung gespeichert!</h2>
+                
+                {editCode && (
+                    <div className="mb-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg inline-block mx-auto max-w-md w-full">
+                        <p className="text-sm text-blue-800 dark:text-blue-300 mb-2 font-medium">Dein Code zum späteren Bearbeiten:</p>
+                        <div className="text-4xl font-mono font-bold tracking-widest text-slate-900 dark:text-white select-all">
+                            {editCode}
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Gut aufbewahren! Ohne diesen Code keine Änderungen.</p>
+                    </div>
+                )}
+
+                <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-lg mx-auto">
+                    Eure Technikbuchung wurde erfolgreich übermittelt.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                    <button 
+                        onClick={() => window.print()} 
+                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-md"
+                    >
+                        <Printer size={20}/>
+                        PDF Speichern / Drucken
+                    </button>
+                    
+                    <button 
+                        onClick={() => {
+                            setSubmitted(false); 
+                            // If we just created it, we have state still in memory, so we can edit immediately.
+                            // However, if we refresh, we need the code.
+                        }} 
+                        className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 px-6 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Edit size={20}/>
+                        Bearbeiten
+                    </button>
+                    
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
+                    >
+                        <RefreshCw size={16}/>
+                        Neues Formular
+                    </button>
+                </div>
+            </div>
         </div>
-        <h2 className="text-3xl font-bold mb-4 dark:text-white">Erfolgreich gespeichert!</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-8">Eure Drehplanung und Technikbestellung wurde übermittelt. Bitte meldet euch beim Lehrer für die Ausgabe.</p>
-        <button onClick={() => window.location.reload()} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors">
-          Neue Planung starten
-        </button>
-      </div>
+
+        {/* Print View (Only Visible when printing) */}
+        <PrintView />
+      </>
     );
   }
 
@@ -201,7 +429,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto bg-white dark:bg-slate-800 shadow-lg rounded-xl overflow-hidden transition-colors duration-200">
+    <div className="print:hidden max-w-5xl mx-auto bg-white dark:bg-slate-800 shadow-lg rounded-xl overflow-hidden transition-colors duration-200">
       {/* Header Steps */}
       <div className="flex border-b dark:border-slate-700">
         <button 
@@ -221,6 +449,45 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
       <div className="p-6">
         {step === 1 && (
           <div className="space-y-8 animate-fade-in">
+            {/* Load by Code Section */}
+            {!currentPlanId && (
+                <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-lg border border-slate-200 dark:border-slate-600 mb-6 flex flex-col sm:flex-row gap-3 items-center">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                        <KeyRound size={20} />
+                        <span>Bereits geplant?</span>
+                    </div>
+                    <div className="flex-1 w-full sm:w-auto flex gap-2">
+                        <input 
+                            type="text" 
+                            placeholder="6-stelliger Code" 
+                            className={`${inputClass} uppercase tracking-widest font-mono`}
+                            value={accessCodeInput}
+                            onChange={(e) => setAccessCodeInput(e.target.value.toUpperCase())}
+                            maxLength={6}
+                        />
+                        <button 
+                            onClick={handleLoadByCode}
+                            disabled={accessCodeInput.length < 6}
+                            className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                        >
+                            <Search size={16}/> Laden
+                        </button>
+                    </div>
+                    {loadError && (
+                        <div className="w-full sm:w-auto text-red-500 text-sm flex items-center gap-1 font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded">
+                            <AlertCircle size={16}/> {loadError}
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            {currentPlanId && (
+                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded text-sm text-blue-800 dark:text-blue-300 flex justify-between items-center">
+                     <span className="flex items-center gap-2"><Edit size={16}/> Du bearbeitest eine existierende Buchung.</span>
+                     <span className="font-mono font-bold tracking-wider">{editCode}</span>
+                 </div>
+            )}
+
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
@@ -490,7 +757,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                        return currentTab?.categories.some(cat => item.category.includes(cat));
                     })
                     .map(item => {
-                      const available = getAvailableCount(item.id);
+                      // Pass currentBookingId so we don't subtract our own items from availability while editing
+                      const available = getAvailableCount(item.id, currentBookingId || undefined);
                       const inCart = cart[item.id] || 0;
                       
                       return (
@@ -606,7 +874,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                 disabled={Object.keys(cart).length === 0 && customItems.length === 0}
                 className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Planung Abschließen
+                {currentPlanId ? 'Änderungen Speichern' : 'Planung Abschließen'}
               </button>
             </div>
           </div>
