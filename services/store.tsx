@@ -43,14 +43,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Sorting helper to maintain PDF order
+  const sortInventory = (items: InventoryItem[]) => {
+    return items.sort((a, b) => {
+        const idxA = INITIAL_INVENTORY.findIndex(i => i.id === a.id);
+        const idxB = INITIAL_INVENTORY.findIndex(i => i.id === b.id);
+        
+        // If both are in the initial list, preserve that order
+        if (idxA >= 0 && idxB >= 0) return idxA - idxB;
+        
+        // If one is in the list, it comes first (known items before custom items)
+        if (idxA >= 0) return -1;
+        if (idxB >= 0) return 1;
+        
+        // If neither exist (custom added items), sort by Category then Name
+        if (a.category !== b.category) return a.category.localeCompare(b.category);
+        return a.name.localeCompare(b.name);
+      });
+  };
+
   // --- Real-time Listeners (Firebase) ---
   useEffect(() => {
     // Capture db in a local variable for Type narrowing
     const firestore = db;
 
-    // Safety Check: If DB is not connected (e.g. missing API keys), stop loading to show UI (empty state)
+    // Safety Check: If DB is not connected (e.g. missing API keys), use local fallback
     if (!firestore) {
-        console.error("Database connection not established. Check API Keys.");
+        console.warn("Database connection not established. Using local fallback data.");
+        setInventory(INITIAL_INVENTORY);
         setIsLoading(false);
         return;
     }
@@ -62,14 +82,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         items.push(doc.data() as InventoryItem);
       });
       
-      // Seed DB if empty (First run only)
+      // Determine if we need to seed (empty server response)
       if (items.length === 0 && !snapshot.metadata.fromCache) {
          seedInventory();
-      } else {
-         // Sort roughly by category to keep UI consistent
-         items.sort((a, b) => a.category.localeCompare(b.category));
-         setInventory(items);
-      }
+      } 
+      
+      setInventory(sortInventory(items));
     });
 
     // 2. Listen to ShootPlans
@@ -138,32 +156,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
-  // --- Actions (Write to Firebase) ---
+  // --- Actions (Write to Firebase or Local State) ---
 
   const addInventoryItem = async (item: InventoryItem) => {
     const firestore = db;
-    if (!firestore) return;
+    if (!firestore) {
+        // Local Fallback
+        setInventory(prev => sortInventory([...prev, item]));
+        return;
+    }
     // Optimistic UI updates are handled by the listener automatically
     await setDoc(doc(firestore, "inventory", item.id), item);
   };
 
   const updateInventoryItem = async (updatedItem: InventoryItem) => {
     const firestore = db;
-    if (!firestore) return;
+    if (!firestore) {
+        // Local Fallback
+        setInventory(prev => sortInventory(prev.map(i => i.id === updatedItem.id ? updatedItem : i)));
+        return;
+    }
     await setDoc(doc(firestore, "inventory", updatedItem.id), updatedItem);
   };
 
   const createShootPlan = async (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
     const firestore = db;
-    if (!firestore) return;
     
-    const batch = writeBatch(firestore);
-
-    // 1. Create Shoot Plan
-    const planRef = doc(firestore, "shootPlans", plan.id);
-    batch.set(planRef, plan);
-
-    // 2. Create Booking
+    // Create objects
     const bookingItems: BookingItem[] = requestedItems.map(req => ({
       itemId: req.itemId,
       requestedCount: req.count,
@@ -181,6 +200,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       status: 'pending'
     };
 
+    if (!firestore) {
+        // Local Fallback
+        setShootPlans(prev => [plan, ...prev]);
+        setBookings(prev => [...prev, newBooking]);
+        return;
+    }
+    
+    const batch = writeBatch(firestore);
+
+    // 1. Create Shoot Plan
+    const planRef = doc(firestore, "shootPlans", plan.id);
+    batch.set(planRef, plan);
+
+    // 2. Create Booking
     const bookingRef = doc(firestore, "bookings", newBooking.id);
     batch.set(bookingRef, newBooking);
 
@@ -189,19 +222,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateBooking = async (updatedBooking: Booking) => {
     const firestore = db;
-    if (!firestore) return;
+    if (!firestore) {
+        // Local Fallback
+        setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+        return;
+    }
     await setDoc(doc(firestore, "bookings", updatedBooking.id), updatedBooking);
   };
 
   const deleteBooking = async (bookingId: string) => {
     const firestore = db;
-    if (!firestore) return;
+    if (!firestore) {
+        // Local Fallback
+        setBookings(prev => prev.filter(b => b.id !== bookingId));
+        return;
+    }
     await deleteDoc(doc(firestore, "bookings", bookingId));
   };
 
   const deleteShootPlan = async (planId: string) => {
     const firestore = db;
-    if (!firestore) return;
+    if (!firestore) {
+        // Local Fallback
+        setShootPlans(prev => prev.filter(p => p.id !== planId));
+        setBookings(prev => prev.filter(b => b.planId !== planId));
+        return;
+    }
     
     const batch = writeBatch(firestore);
     
