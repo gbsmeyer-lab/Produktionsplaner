@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useApp } from '../services/store';
 import { Lock, LogOut, Sun, Moon, Wand2, Loader2 } from 'lucide-react';
@@ -13,7 +14,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-slate-900 transition-colors duration-200">
-      <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-md">
+      <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-md print:hidden">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold tracking-tight">Produktionsplaner_beta</h1>
@@ -66,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
           </div>
         </div>
       </header>
-      <main className="flex-grow container mx-auto px-4 py-6">
+      <main className="flex-grow container mx-auto px-4 py-6 print:p-0 print:w-full print:max-w-none">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
              <Loader2 size={40} className="animate-spin mb-4 text-blue-500"/>
@@ -76,7 +77,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
           children
         )}
       </main>
-      <footer className="bg-white dark:bg-slate-800 dark:border-slate-700 border-t py-4 text-center text-sm text-gray-500 dark:text-gray-400 transition-colors">
+      <footer className="bg-white dark:bg-slate-800 dark:border-slate-700 border-t py-4 text-center text-sm text-gray-500 dark:text-gray-400 transition-colors print:hidden">
         &copy; {new Date().getFullYear()} Gutenbergschule Leipzig
       </footer>
     </div>

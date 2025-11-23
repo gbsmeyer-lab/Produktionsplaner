@@ -275,7 +275,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
     
     return (
-        <div className="hidden print:block font-sans text-black p-0 m-0">
+        <div className="hidden print:block print:absolute print:top-0 print:left-0 print:w-full print:min-h-screen print:z-[9999] print:bg-white font-sans text-black p-10 m-0">
             <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
                 <div>
                     <h1 className="text-2xl font-bold uppercase tracking-wider">Planung & Technik</h1>
