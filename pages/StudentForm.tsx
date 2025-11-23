@@ -243,21 +243,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
         setEditCode(codeToUse); 
     }
     
-    // We don't have the exact ID returned from createShootPlan in the "New" case easily without refactoring, 
-    // BUT we generated the code locally. We can show that code.
-    // If they want to edit immediately, we can require them to "login" with the code?
-    // Or we just rely on `setSubmitted(true)` and if they click Edit, we reload?
-    // To make "Direct Edit" work without re-login, we ideally need the ID.
-    // For now, if they click Edit immediately, we might need to ask them to use the code if we didn't capture the ID.
-    // However, since we define `planIdToUse` locally above, we technically know the ID!
-    // So let's update the state with it.
-    
     if (!currentPlanId) {
         setCurrentPlanId(planIdToUse);
-        // We can't easily guess booking ID (it uses Date.now() inside store).
-        // This is a slight flaw in the store design.
-        // However, for "Edit immediately", we can rely on `loadPlanByCode` which we can trigger silently?
-        // Let's just instruct user to save the code. If they click edit, we keep state open.
     }
 
     setSubmitted(true);
@@ -269,95 +256,161 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     }
   };
 
-  // --- PRINT VIEW COMPONENT (Internal) ---
-  const PrintView = () => {
+  // --- NEW PDF / PRINT HANDLER ---
+  const handleOpenPrintWindow = () => {
     const finalClassName = classNameSelect === 'CUSTOM' ? customClassName : classNameSelect;
     const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
-    
-    return (
-        <div className="hidden print:block print:absolute print:top-0 print:left-0 print:w-full print:min-h-screen print:z-[9999] print:bg-white font-sans text-black p-10 m-0">
-            <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold uppercase tracking-wider">Planung & Technik</h1>
-                    <p className="text-sm mt-1">Mediengestaltung Bild und Ton</p>
-                </div>
-                <div className="text-right">
-                    <p className="font-bold">{finalClassName} - Gr. {groupLetter}</p>
-                    <p>{new Date().toLocaleDateString('de-DE')}</p>
-                    {editCode && (
-                         <div className="mt-2 border border-black p-1 inline-block">
-                             <span className="text-xs block">Bearbeitungs-Code:</span>
-                             <span className="font-mono font-bold text-lg">{editCode}</span>
-                         </div>
-                    )}
-                </div>
-            </div>
+    const totalItems = Object.values(cart).reduce((a: number, b: number) => a + b, 0);
 
-            <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
-                 <div>
-                     <strong>Projekt:</strong> {finalProjectType}<br/>
-                     {projectTopic && <div><strong>Thema:</strong> {projectTopic}</div>}
-                     <strong>Team:</strong> {members.map(m => m.name).join(', ')}
-                 </div>
-                 <div className="text-right">
-                     <strong>Rückgabe:</strong> {returnDate ? new Date(returnDate).toLocaleDateString('de-DE') : '-'}<br/>
-                     <strong>Kontakt:</strong> {contactPhone}
-                 </div>
-             </div>
+    // Create a new window
+    const win = window.open('', '_blank');
+    if (!win) {
+        alert("Bitte Pop-ups erlauben, um die PDF-Ansicht zu öffnen.");
+        return;
+    }
 
-             <div className="mb-6">
-                <h3 className="font-bold border-b border-gray-400 mb-2">Drehorte</h3>
-                {locations.map((loc, i) => (
-                    <div key={i} className="text-sm grid grid-cols-3 gap-2">
-                        <span>{loc.date ? new Date(loc.date).toLocaleDateString('de-DE') : '-'}</span>
-                        <span>{loc.timeStart} - {loc.timeEnd}</span>
-                        <span>{loc.address}</span>
-                    </div>
-                ))}
-             </div>
+    // Build HTML string
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Technikbuchung_${finalClassName}_Gr${groupLetter}</title>
+        <style>
+          body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 40px; color: #000; max-width: 800px; margin: 0 auto; }
+          h1 { text-transform: uppercase; font-size: 24px; margin: 0 0 5px 0; letter-spacing: 1px; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+          .meta-info { text-align: right; }
+          .meta-info p { margin: 2px 0; }
+          .code-box { border: 2px solid #000; padding: 8px 15px; margin-top: 10px; display: inline-block; text-align: center; background: #f0f0f0; }
+          .code-box .label { font-size: 10px; text-transform: uppercase; display: block; }
+          .code-box .code { font-family: monospace; font-size: 20px; font-weight: bold; letter-spacing: 2px; display: block; }
+          
+          .section { margin-bottom: 30px; }
+          .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; color: #444; }
+          
+          .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+          .info-row { margin-bottom: 5px; font-size: 14px; }
+          .info-label { font-weight: bold; display: inline-block; width: 100px; }
 
-             <h3 className="font-bold border-b border-gray-400 mb-2">Gebuchte Technik</h3>
-             <table className="w-full text-left text-sm border-collapse mb-8">
-                 <thead>
-                     <tr className="border-b border-gray-300">
-                         <th className="py-1 w-12">Anz.</th>
-                         <th className="py-1">Gerät</th>
-                         <th className="py-1">Kategorie</th>
-                     </tr>
-                 </thead>
-                 <tbody>
-                    {Object.entries(cart).map(([itemId, count]) => {
-                        const item = inventory.find(i => i.id === itemId);
-                        return (
-                            <tr key={itemId} className="border-b border-gray-100">
-                                <td className="py-1 font-bold">{count}x</td>
-                                <td className="py-1">{item?.name}</td>
-                                <td className="py-1 text-gray-600">{item?.category}</td>
-                            </tr>
-                        );
-                    })}
-                    {customItems.map((ci, i) => (
-                         <tr key={`c-${i}`} className="border-b border-gray-100">
-                             <td className="py-1 font-bold">{ci.count}x</td>
-                             <td className="py-1">{ci.name} (Zusatz)</td>
-                             <td className="py-1 text-gray-600">Sonstiges</td>
-                         </tr>
-                     ))}
-                 </tbody>
-             </table>
-             
-             <div className="text-xs text-gray-500 mt-8">
-                 <p>Bitte dieses Dokument digital speichern oder ausdrucken. Änderungen sind nur mit dem Code möglich.</p>
-             </div>
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { text-align: left; border-bottom: 2px solid #000; padding: 8px 4px; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+          td { border-bottom: 1px solid #eee; padding: 8px 4px; vertical-align: top; }
+          .qty-col { width: 50px; font-weight: bold; font-size: 14px; }
+          .cat-col { color: #666; font-size: 11px; }
+          
+          .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #000; font-size: 11px; color: #666; text-align: center; }
+          
+          @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="no-print" style="background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; padding: 15px; text-align: center; margin-bottom: 20px; border-radius: 6px;">
+           <strong>Dies ist die Druckansicht.</strong> 
+           <button onclick="window.print()" style="background: #3730a3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 10px;">Jetzt Drucken / PDF Speichern</button>
         </div>
-    );
+
+        <div class="header">
+          <div>
+            <h1>Technik & Planung</h1>
+            <p style="margin:0; font-size: 14px; color: #666;">Mediengestaltung Bild und Ton</p>
+          </div>
+          <div class="meta-info">
+            <p><strong>${finalClassName}</strong></p>
+            <p>Gruppe ${groupLetter}</p>
+            <p>${new Date().toLocaleDateString('de-DE')}</p>
+            ${editCode ? `
+            <div class="code-box">
+               <span class="label">Bearbeitungs-Code</span>
+               <span class="code">${editCode}</span>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <div class="section grid-2">
+           <div>
+              <div class="section-title">Projekt Daten</div>
+              <div class="info-row"><span class="info-label">Art:</span> ${finalProjectType}</div>
+              ${projectTopic ? `<div class="info-row"><span class="info-label">Thema:</span> ${projectTopic}</div>` : ''}
+              <div class="info-row" style="margin-top: 10px;">
+                <span class="info-label">Team:</span><br/>
+                ${members.map(m => m.name).join(', ')}
+              </div>
+           </div>
+           <div>
+              <div class="section-title">Zeitplan</div>
+              <div class="info-row"><span class="info-label">Rückgabe:</span> ${returnDate ? new Date(returnDate).toLocaleDateString('de-DE') : '-'}</div>
+              <div class="info-row"><span class="info-label">Lagerung:</span> ${storageDates.length > 0 ? storageDates.map(d => new Date(d).toLocaleDateString('de-DE')).join(', ') : 'Keine'}</div>
+              <div class="info-row"><span class="info-label">Kontakt:</span> ${contactPhone}</div>
+           </div>
+        </div>
+
+        <div class="section">
+           <div class="section-title">Drehorte</div>
+           ${locations.map(loc => `
+             <div style="font-size: 13px; margin-bottom: 4px; display: grid; grid-template-columns: 100px 120px 1fr;">
+                <span>${loc.date ? new Date(loc.date).toLocaleDateString('de-DE') : '-'}</span>
+                <span>${loc.timeStart} - ${loc.timeEnd}</span>
+                <strong>${loc.address}</strong>
+             </div>
+           `).join('')}
+        </div>
+
+        <div class="section">
+           <div class="section-title">Packliste (${totalItems} Teile)</div>
+           <table>
+             <thead>
+               <tr>
+                 <th class="qty-col">Anz.</th>
+                 <th>Gerät / Bezeichnung</th>
+                 <th class="cat-col">Kategorie</th>
+                 <th style="width: 30px;"></th>
+               </tr>
+             </thead>
+             <tbody>
+               ${Object.entries(cart).map(([itemId, count]) => {
+                  const item = inventory.find(i => i.id === itemId);
+                  return `
+                    <tr>
+                      <td class="qty-col">${count}x</td>
+                      <td>${item?.name}</td>
+                      <td class="cat-col">${item?.category}</td>
+                      <td><div style="width:12px; height:12px; border:1px solid #ccc;"></div></td>
+                    </tr>
+                  `;
+               }).join('')}
+               ${customItems.map(ci => `
+                  <tr>
+                      <td class="qty-col">${ci.count}x</td>
+                      <td>${ci.name} <span style="font-size:10px; color:#666;">(Eigenes Item)</span></td>
+                      <td class="cat-col">Sonstiges</td>
+                      <td><div style="width:12px; height:12px; border:1px solid #ccc;"></div></td>
+                  </tr>
+               `).join('')}
+             </tbody>
+           </table>
+        </div>
+
+        <div class="footer">
+           Dieses Dokument dient als Packliste und Nachweis. Bitte sorgfältig aufbewahren.<br/>
+           Erstellt am ${new Date().toLocaleString('de-DE')}
+        </div>
+      </body>
+      </html>
+    `;
+
+    win.document.write(htmlContent);
+    win.document.close();
+    win.focus();
+    // Optional: Auto-trigger print after short delay
+    // setTimeout(() => win.print(), 500); 
   };
 
   if (submitted) {
     return (
-      <>
-        {/* Screen View */}
-        <div className="print:hidden max-w-3xl mx-auto py-10 px-4">
+      <div className="print:hidden max-w-3xl mx-auto py-10 px-4">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center animate-fade-in">
                 <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-6 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
                     <Save size={40} />
@@ -380,18 +433,17 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                 
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                     <button 
-                        onClick={() => window.print()} 
+                        onClick={handleOpenPrintWindow} 
                         className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-md"
                     >
                         <Printer size={20}/>
-                        PDF Speichern / Drucken
+                        Zusammenfassung öffnen / PDF
                     </button>
                     
                     <button 
                         onClick={() => {
                             setSubmitted(false); 
                             // If we just created it, we have state still in memory, so we can edit immediately.
-                            // However, if we refresh, we need the code.
                         }} 
                         className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 px-6 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
                     >
@@ -409,10 +461,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                 </div>
             </div>
         </div>
-
-        {/* Print View (Only Visible when printing) */}
-        <PrintView />
-      </>
     );
   }
 
