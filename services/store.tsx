@@ -8,11 +8,7 @@ import {
   doc, 
   setDoc, 
   deleteDoc, 
-  updateDoc, 
-  writeBatch,
-  query,
-  where,
-  getDocs
+  writeBatch
 } from 'firebase/firestore';
 
 interface AppState {
@@ -49,6 +45,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Real-time Listeners (Firebase) ---
   useEffect(() => {
+    // Safety Check: If DB is not connected (e.g. missing API keys), stop loading to show UI (empty state)
+    if (!db) {
+        console.error("Database connection not established. Check API Keys.");
+        setIsLoading(false);
+        return;
+    }
+
     // 1. Listen to Inventory
     const unsubInventory = onSnapshot(collection(db, "inventory"), (snapshot) => {
       const items: InventoryItem[] = [];
@@ -106,10 +109,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Helper to seed the database if it's empty
   const seedInventory = async () => {
+    if (!db) return;
     console.log("Seeding Database with initial inventory...");
     const batch = writeBatch(db);
     INITIAL_INVENTORY.forEach(item => {
-      const ref = doc(db, "inventory", item.id);
+      const ref = doc(db!, "inventory", item.id);
       batch.set(ref, item);
     });
     await batch.commit();
@@ -132,15 +136,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- Actions (Write to Firebase) ---
 
   const addInventoryItem = async (item: InventoryItem) => {
+    if (!db) return;
     // Optimistic UI updates are handled by the listener automatically
     await setDoc(doc(db, "inventory", item.id), item);
   };
 
   const updateInventoryItem = async (updatedItem: InventoryItem) => {
+    if (!db) return;
     await setDoc(doc(db, "inventory", updatedItem.id), updatedItem);
   };
 
   const createShootPlan = async (plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => {
+    if (!db) return;
     const batch = writeBatch(db);
 
     // 1. Create Shoot Plan
@@ -172,14 +179,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateBooking = async (updatedBooking: Booking) => {
+    if (!db) return;
     await setDoc(doc(db, "bookings", updatedBooking.id), updatedBooking);
   };
 
   const deleteBooking = async (bookingId: string) => {
+    if (!db) return;
     await deleteDoc(doc(db, "bookings", bookingId));
   };
 
   const deleteShootPlan = async (planId: string) => {
+    if (!db) return;
     const batch = writeBatch(db);
     
     // Delete the plan
