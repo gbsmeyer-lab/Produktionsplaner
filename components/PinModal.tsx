@@ -15,8 +15,8 @@ export const PinModal: React.FC<PinModalProps> = ({ isOpen, onClose, onSuccess }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Hardcoded PIN for demo purposes as requested: 1234
-    if (pin === '1234') {
+    // Updated PIN as requested: 4103
+    if (pin === '4103') {
       onSuccess();
       setPin('');
       setError(false);
