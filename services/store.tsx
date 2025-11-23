@@ -321,9 +321,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const item = inventory.find(i => i.id === itemId);
     if (!item) return 0;
     
-    // Filter bookings. If we are editing a booking (excludeBookingId), we don't count its own usage against the total
+    // Filter bookings. 
+    // Status 'packed' means items are physically in the bag, so they count as used.
+    // Status 'pending' means requested, so they count as used (reserved).
     const activeBookings = bookings.filter(b => 
-      (b.status === 'active' || b.status === 'pending') && 
+      (b.status === 'active' || b.status === 'pending' || b.status === 'packed') && 
       b.id !== excludeBookingId
     );
 
@@ -350,7 +352,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
      if (!booking) return { error: "Keine zugehörige Buchung gefunden." };
      
      if (booking.status !== 'pending') {
-         return { error: "Technik wurde bereits ausgegeben oder zurückgenommen. Bearbeitung nicht mehr möglich." };
+         return { error: "Technik wurde bereits gepackt, ausgegeben oder zurückgenommen. Bearbeitung nicht mehr möglich." };
      }
      
      return { plan, booking };

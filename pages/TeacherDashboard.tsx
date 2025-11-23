@@ -4,12 +4,12 @@ import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
 import { SignatureCanvas } from '../components/SignatureCanvas';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, FileText, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X } from 'lucide-react';
+import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, FileText, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool } from 'lucide-react';
 
 export const TeacherDashboard: React.FC = () => {
   const { bookings, shootPlans, inventory, updateBooking, deleteShootPlan, addInventoryItem, updateInventoryItem, getAvailableCount } = useApp();
   
-  const [view, setView] = useState<'dashboard' | 'handover' | 'inventory' | 'details' | 'return' | 'pdf'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'handover' | 'inventory' | 'details' | 'return'>('dashboard');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [filterClass, setFilterClass] = useState<string>('all');
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
@@ -22,8 +22,8 @@ export const TeacherDashboard: React.FC = () => {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isEditingCustomCat, setIsEditingCustomCat] = useState(false);
 
-  // Get active shoots
-  const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'pending' || b.status === 'returned');
+  // Get active shoots including packed ones
+  const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'pending' || b.status === 'returned' || b.status === 'packed');
   
   const getPlan = (planId: string) => shootPlans.find(p => p.id === planId);
 
@@ -84,6 +84,16 @@ export const TeacherDashboard: React.FC = () => {
     }
   };
 
+  const savePackedState = () => {
+    if (selectedBooking) {
+        // Just save status as 'packed', no signature needed
+        const updated: Booking = { ...selectedBooking, status: 'packed' };
+        updateBooking(updated);
+        setSelectedBooking(null);
+        setView('dashboard');
+    }
+  };
+
   const finishHandover = () => {
     if (selectedBooking) {
         const updated: Booking = { ...selectedBooking, status: 'active' };
@@ -136,6 +146,140 @@ export const TeacherDashboard: React.FC = () => {
       };
       updateBooking(updated);
       setSelectedBooking(updated);
+  };
+
+  // --- PDF Generation (New Tab) ---
+  const handleOpenPrintWindow = (booking: Booking) => {
+      const plan = getPlan(booking.planId);
+      if (!plan) return;
+      const sortedItems = sortBookingItems(booking.items);
+
+      const win = window.open('', '_blank');
+      if (!win) {
+          alert("Bitte Pop-ups erlauben.");
+          return;
+      }
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Lieferschein_${plan.className}_Gr${plan.groupLetter}</title>
+          <style>
+            body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 40px; color: #000; max-width: 800px; margin: 0 auto; }
+            h1 { text-transform: uppercase; font-size: 24px; margin: 0 0 5px 0; letter-spacing: 1px; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+            .meta-info { text-align: right; font-size: 14px; }
+            
+            .section { margin-bottom: 30px; }
+            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14px; }
+            
+            table { width: 100%; border-collapse: collapse; font-size: 13px; }
+            th { text-align: left; border-bottom: 2px solid #000; padding: 8px 4px; font-weight: bold; text-transform: uppercase; font-size: 11px; }
+            td { border-bottom: 1px solid #eee; padding: 8px 4px; vertical-align: top; }
+            .qty-col { width: 50px; font-weight: bold; font-size: 14px; }
+            .check-col { width: 40px; text-align: right; }
+            .check-box { width: 14px; height: 14px; border: 1px solid #000; display: inline-block; }
+            .check-box.checked { background: #000; }
+            
+            .notes { font-size: 11px; font-style: italic; color: #444; margin-top: 2px; }
+            .id-tag { font-family: monospace; font-size: 11px; background: #eee; padding: 1px 4px; border-radius: 3px; margin-right: 4px; }
+            
+            .footer { margin-top: 50px; padding-top: 20px; border-top: 2px solid #000; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; font-size: 14px; }
+            .sig-box { height: 60px; margin-top: 10px; }
+            .sig-img { height: 50px; object-fit: contain; }
+
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 10px; text-align: center; margin-bottom: 20px; font-family: sans-serif;">
+             <button onclick="window.print()" style="background: #3730a3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Drucken / PDF Speichern</button>
+          </div>
+
+          <div class="header">
+            <div>
+              <h1>Lieferschein / Packliste</h1>
+              <p style="margin:0; font-size: 14px; color: #444;">Ausleihe Medientechnik</p>
+            </div>
+            <div class="meta-info">
+              <p><strong>${plan.className}</strong> - Gruppe ${plan.groupLetter}</p>
+              <p>${new Date().toLocaleDateString('de-DE')}</p>
+            </div>
+          </div>
+
+          <div class="section grid-2">
+             <div>
+                <strong>Projekt:</strong> ${plan.projectType}<br/>
+                ${plan.projectTopic ? `<em>${plan.projectTopic}</em><br/>` : ''}
+                <strong>Team:</strong> ${plan.members.map(m => m.name).join(', ')}
+             </div>
+             <div style="text-align: right;">
+                <strong>Rückgabe:</strong> ${plan.returnDate ? new Date(plan.returnDate).toLocaleDateString('de-DE') : '-'}<br/>
+                <strong>Kontakt:</strong> ${plan.contactPhone}
+             </div>
+          </div>
+
+          <div class="section">
+             <table>
+               <thead>
+                 <tr>
+                   <th class="qty-col">Anz.</th>
+                   <th>Gerät / Bezeichnung</th>
+                   <th>Kategorie</th>
+                   <th class="check-col">Out</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 ${sortedItems.filter(i => i.handedOutCount > 0).map(item => {
+                    const invItem = inventory.find(i => i.id === item.itemId);
+                    return `
+                      <tr>
+                        <td class="qty-col">${item.handedOutCount}x</td>
+                        <td>
+                           <div style="font-weight: bold;">${invItem?.name}</div>
+                           ${item.specificIds && item.specificIds.length > 0 ? `<div>${item.specificIds.map(id => `<span class="id-tag">${id}</span>`).join('')}</div>` : ''}
+                           ${item.notes ? `<div class="notes">Note: ${item.notes}</div>` : ''}
+                        </td>
+                        <td>${invItem?.category}</td>
+                        <td class="check-col"><div class="check-box checked"></div></td>
+                      </tr>
+                    `;
+                 }).join('')}
+                 ${booking.customItems.map(ci => `
+                    <tr>
+                        <td class="qty-col">${ci.count}x</td>
+                        <td>${ci.name} <span style="font-size:11px;">(Zusatz)</span></td>
+                        <td>Sonstiges</td>
+                        <td class="check-col"><div class="check-box checked"></div></td>
+                    </tr>
+                 `).join('')}
+               </tbody>
+             </table>
+          </div>
+
+          <div class="footer">
+             <div>
+                 Unterschrift Ausgabe (Lehrer):
+                 <div class="sig-box" style="border-bottom: 1px dotted #000;"></div>
+             </div>
+             <div>
+                 Unterschrift Empfang (Schüler):
+                 <div class="sig-box" style="border-bottom: 1px dotted #000;">
+                    ${booking.signature ? `<img src="${booking.signature}" class="sig-img" />` : ''}
+                 </div>
+             </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      win.document.write(htmlContent);
+      win.document.close();
+      win.focus();
   };
 
   // --- Inventory Management ---
@@ -276,14 +420,27 @@ export const TeacherDashboard: React.FC = () => {
 
     const sortedBookingItems = sortBookingItems(selectedBooking.items);
     const hasSignature = !!selectedBooking.signature;
+    const isPacked = selectedBooking.status === 'packed';
 
     return (
-      <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg animate-fade-in transition-colors duration-200 pb-24">
+      <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 p-6 rounded-xl shadow-lg animate-fade-in transition-colors duration-200 pb-32">
         <button onClick={() => { setSelectedBooking(null); setView('dashboard'); }} className="mb-4 text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"><ArrowLeft size={16}/> Zurück zum Dashboard</button>
         <div className="mb-6 border-b dark:border-slate-700 pb-4">
-            <h2 className="text-2xl font-bold dark:text-white">{plan.className} - Gruppe {plan.groupLetter}</h2>
-            {plan.projectTopic && <p className="text-lg italic text-slate-600 dark:text-slate-300">"{plan.projectTopic}"</p>}
-            <p className="text-gray-600 dark:text-gray-400">{plan.projectType} <span className="mx-2">|</span> Geräteausgabe</p>
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-2xl font-bold dark:text-white">{plan.className} - Gruppe {plan.groupLetter}</h2>
+                {plan.projectTopic && <p className="text-lg italic text-slate-600 dark:text-slate-300">"{plan.projectTopic}"</p>}
+                <p className="text-gray-600 dark:text-gray-400">{plan.projectType} <span className="mx-2">|</span> Geräteausgabe</p>
+                {isPacked && <span className="inline-block mt-2 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-bold border border-orange-200">Bereits gepackt / Bereit zur Übergabe</span>}
+              </div>
+              <button 
+                  onClick={() => handleOpenPrintWindow(selectedBooking)}
+                  className="flex items-center gap-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 px-3 py-2 rounded text-sm text-gray-700 dark:text-gray-200 transition-colors"
+                  title="Packliste drucken"
+              >
+                  <Printer size={16} /> Packliste
+              </button>
+            </div>
         </div>
 
         <div className="space-y-6">
@@ -309,7 +466,7 @@ export const TeacherDashboard: React.FC = () => {
                                     ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' 
                                     : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                 >
-                                    {isChecked ? 'Ausgegeben' : 'Ausgeben'}
+                                    {isChecked ? 'Gepackt' : 'Packen'}
                                     {isChecked && <Check size={16}/>} 
                                 </button>
                             </div>
@@ -339,7 +496,7 @@ export const TeacherDashboard: React.FC = () => {
 
             <div className="mt-8 border-t dark:border-slate-700 pt-6">
                 <h3 className="font-bold text-lg mb-2 dark:text-white">Unterschrift (Schüler)</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Mit der Unterschrift wird der Erhalt bestätigt.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Mit der Unterschrift wird der Erhalt bestätigt. Erst danach kann die Ausgabe finalisiert werden.</p>
                 {selectedBooking.signature ? (
                     <div className="bg-white p-4 border rounded relative">
                         <img src={selectedBooking.signature} alt="Signature" className="h-[100px]"/>
@@ -354,17 +511,26 @@ export const TeacherDashboard: React.FC = () => {
             </div>
             
             {/* Action Bar sticking to bottom */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t dark:border-slate-700 shadow-lg flex justify-end container mx-auto">
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t dark:border-slate-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex flex-col sm:flex-row justify-end gap-3 container mx-auto z-50">
+                 
+                 <button 
+                    onClick={savePackedState}
+                    className="px-6 py-3 rounded-lg font-bold text-lg flex items-center justify-center gap-2 bg-orange-100 text-orange-800 hover:bg-orange-200 border border-orange-300 transition-colors"
+                 >
+                    <Package size={20}/> Vorläufig speichern (Gepackt)
+                 </button>
+
                  <button 
                     onClick={finishHandover}
                     disabled={!hasSignature}
-                    className={`px-6 py-3 rounded-lg font-bold text-lg flex items-center gap-2 ${
+                    className={`px-6 py-3 rounded-lg font-bold text-lg flex items-center justify-center gap-2 transition-all ${
                         hasSignature 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg transform hover:-translate-y-1 transition-all' 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg transform hover:-translate-y-1' 
                         : 'bg-gray-300 dark:bg-slate-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
                     }`}
                  >
-                    <CheckSquare size={24}/> Ausgabe abschließen
+                    {hasSignature ? <CheckSquare size={20}/> : <PenTool size={20}/>} 
+                    Ausgabe abschließen
                  </button>
             </div>
         </div>
@@ -456,104 +622,6 @@ export const TeacherDashboard: React.FC = () => {
       );
   }
 
-  // 4. PDF / Printable View
-  if (view === 'pdf' && selectedBooking) {
-      const plan = getPlan(selectedBooking.planId);
-      if (!plan) return <div>Plan not found</div>;
-      const sortedBookingItems = sortBookingItems(selectedBooking.items);
-
-      return (
-          <div className="max-w-3xl mx-auto bg-white text-black p-8 shadow-none print:p-0">
-             {/* Print Header */}
-             <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
-                 <div>
-                     <h1 className="text-2xl font-bold uppercase tracking-wider text-black">Lieferschein / Packliste</h1>
-                     <p className="text-sm mt-1 text-black">Medientechnik Ausleihe</p>
-                 </div>
-                 <div className="text-right text-black">
-                     <p className="font-bold">{plan.className} - Gr. {plan.groupLetter}</p>
-                     <p>{new Date().toLocaleDateString('de-DE')}</p>
-                 </div>
-             </div>
-
-             <div className="mb-6 grid grid-cols-2 gap-4 text-sm text-black">
-                 <div>
-                     <strong>Projekt:</strong> {plan.projectType}<br/>
-                     {plan.projectTopic && <div><strong>Thema:</strong> {plan.projectTopic}</div>}
-                     <strong>Team:</strong> {plan.members.map(m => m.name).join(', ')}
-                 </div>
-                 <div className="text-right">
-                     <strong>Rückgabe:</strong> {plan.returnDate ? new Date(plan.returnDate).toLocaleDateString('de-DE') : '-'}<br/>
-                     <strong>Kontakt:</strong> {plan.contactPhone}
-                 </div>
-             </div>
-
-             <table className="w-full text-left text-sm border-collapse text-black">
-                 <thead>
-                     <tr className="border-b border-black">
-                         <th className="py-2 w-16 text-black">Anz.</th>
-                         <th className="py-2 text-black">Bezeichnung</th>
-                         <th className="py-2 text-black">Kategorie</th>
-                         <th className="py-2 w-24 text-right text-black">Check</th>
-                     </tr>
-                 </thead>
-                 <tbody>
-                     {sortedBookingItems
-                        .filter(item => item.handedOutCount > 0)
-                        .map(item => {
-                         const invItem = inventory.find(i => i.id === item.itemId);
-                         return (
-                             <tr key={item.itemId} className="border-b border-gray-300">
-                                 <td className="py-3 font-bold align-top text-black">{item.handedOutCount}x</td>
-                                 <td className="py-3 align-top text-black">
-                                     <div className="font-medium">{invItem?.name}</div>
-                                     {item.specificIds.length > 0 && <div className="text-xs text-gray-600">ID: {item.specificIds.join(', ')}</div>}
-                                     {item.notes && <div className="text-xs italic mt-1 font-bold">Anmerkung: {item.notes}</div>}
-                                 </td>
-                                 <td className="py-3 text-gray-800 align-top">{invItem?.category}</td>
-                                 <td className="py-3 align-top text-right"><div className="w-4 h-4 border border-black inline-block"></div></td>
-                             </tr>
-                         );
-                     })}
-                     {selectedBooking.customItems.map((ci, i) => (
-                         <tr key={`c-${i}`} className="border-b border-gray-300 bg-gray-50">
-                             <td className="py-3 font-bold align-top text-black">{ci.count}x</td>
-                             <td className="py-3 align-top text-black">{ci.name} (Zusatz)</td>
-                             <td className="py-3 text-gray-800 align-top">Sonstiges</td>
-                             <td className="py-3 align-top text-right"><div className="w-4 h-4 border border-black inline-block"></div></td>
-                         </tr>
-                     ))}
-                 </tbody>
-             </table>
-
-             <div className="mt-12 pt-4 border-t border-black grid grid-cols-2 gap-8 text-sm text-black">
-                 <div>
-                     <p className="mb-8">Unterschrift Ausgabe (Lehrer):</p>
-                     <div className="border-b border-dotted border-black"></div>
-                 </div>
-                 <div>
-                     <p className="mb-4">Unterschrift Empfang (Schüler):</p>
-                     {selectedBooking.signature ? (
-                         <img src={selectedBooking.signature} alt="Unterschrift" className="h-[60px] object-contain mb-2 block" />
-                     ) : (
-                         <div className="h-[60px]"></div>
-                     )}
-                     <div className="border-b border-dotted border-black"></div>
-                 </div>
-             </div>
-
-             <div className="mt-8 flex gap-4 print:hidden">
-                 <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700">
-                     <Printer size={16}/> Drucken
-                 </button>
-                 <button onClick={() => setView('dashboard')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">
-                     Schließen
-                 </button>
-             </div>
-          </div>
-      );
-  }
-
   // 5. Default Dashboard View
   return (
     <div className="space-y-6">
@@ -598,6 +666,14 @@ export const TeacherDashboard: React.FC = () => {
                      if (!plan) return null;
                      
                      const isComplete = booking.status === 'returned';
+                     const isPacked = booking.status === 'packed';
+                     const isActive = booking.status === 'active';
+                     
+                     // Determine status color
+                     let statusColor = 'bg-yellow-400';
+                     if (isPacked) statusColor = 'bg-orange-500';
+                     if (isActive) statusColor = 'bg-green-500';
+                     if (isComplete) statusColor = 'bg-gray-400';
 
                      return (
                          <div key={booking.id} className={cardClass}>
@@ -617,8 +693,9 @@ export const TeacherDashboard: React.FC = () => {
                                     {plan.projectTopic && <p className="text-sm font-medium text-slate-700 dark:text-slate-200 italic mb-1">"{plan.projectTopic}"</p>}
                                     <p className="text-sm text-gray-500 dark:text-gray-300">{plan.projectType}</p>
                                 </div>
-                                <div className="text-right">
-                                    <span className={`inline-block w-3 h-3 rounded-full ${booking.status === 'active' ? 'bg-green-500' : (booking.status === 'returned' ? 'bg-gray-400' : 'bg-yellow-400')}`}></span>
+                                <div className="text-right flex flex-col items-end gap-1">
+                                    <span className={`inline-block w-3 h-3 rounded-full ${statusColor}`}></span>
+                                    {isPacked && <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase">Gepackt</span>}
                                 </div>
                             </div>
                             
@@ -660,26 +737,33 @@ export const TeacherDashboard: React.FC = () => {
                                 <button 
                                     onClick={() => { setSelectedBooking(booking); setView('handover'); }}
                                     disabled={isComplete}
-                                    className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                    className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors 
+                                      ${isComplete 
+                                        ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' 
+                                        : (isPacked 
+                                            ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                                            : 'bg-blue-600 text-white hover:bg-blue-700')
+                                      }`}
                                 >
-                                    <CheckSquare size={16}/> Ausgabe
+                                    {isActive ? <CheckSquare size={16}/> : <Package size={16}/>}
+                                    {isPacked ? 'Übergabe' : 'Ausgabe'} 
                                 </button>
                                 
-                                {(booking.status === 'active' || booking.status === 'returned') && (
+                                {(booking.status === 'active' || booking.status === 'returned' || booking.status === 'packed') && (
                                     <>
                                         <button 
                                             onClick={() => { setSelectedBooking(booking); setView('return'); }}
-                                            disabled={isComplete}
-                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                            disabled={isComplete || isPacked}
+                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
                                         >
                                             <ArrowDownCircle size={16}/> Rückgabe
                                         </button>
                                         <button 
-                                            onClick={() => { setSelectedBooking(booking); setView('pdf'); }}
+                                            onClick={() => handleOpenPrintWindow(booking)}
                                             className="col-span-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 py-2 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-500 flex justify-center items-center transition-colors"
-                                            title="Übersicht PDF / Drucken"
+                                            title="Lieferschein PDF / Drucken"
                                         >
-                                            <FileText size={16}/>
+                                            <Printer size={16}/>
                                         </button>
                                     </>
                                 )}

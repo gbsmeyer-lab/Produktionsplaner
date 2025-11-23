@@ -85,7 +85,7 @@ export interface Booking {
   planId: string; // Links to ShootPlan
   items: BookingItem[];
   customItems: CustomItem[];
-  status: 'pending' | 'active' | 'returned';
+  status: 'pending' | 'packed' | 'active' | 'returned';
   signature?: string; // Base64 image
   handoutDate?: number;
 }
