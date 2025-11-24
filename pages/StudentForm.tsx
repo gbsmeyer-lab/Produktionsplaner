@@ -17,6 +17,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [editCode, setEditCode] = useState<string>('');
+  const [originalCreatedAt, setOriginalCreatedAt] = useState<number>(Date.now());
 
   // Conflict State
   const [conflictPlan, setConflictPlan] = useState<ShootPlan | null>(null);
@@ -86,6 +87,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
              setContactPhone(p.contactPhone);
              setReturnDate(p.returnDate);
              setStorageDates(p.storageDates || []);
+             setOriginalCreatedAt(p.createdAt);
     
              // Populate Cart
              const newCart: { [id: string]: number } = {};
@@ -205,7 +207,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
     }
 
     const planIdToUse = currentPlanId || `pl-${Date.now()}`;
-    const createdAt = currentPlanId ? Date.now() : Date.now(); 
     const codeToUse = currentPlanId ? editCode : generateEditCode();
 
     const plan: ShootPlan = {
@@ -220,7 +221,8 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
       contactPhone,
       returnDate,
       storageDates: finalStorageDates,
-      createdAt: createdAt
+      createdAt: currentPlanId ? originalCreatedAt : Date.now(),
+      updatedAt: currentPlanId ? Date.now() : undefined
     };
 
     const requestedItems = Object.entries(cart).map(([itemId, count]) => ({ itemId, count }));
@@ -235,6 +237,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
     
     if (!currentPlanId) {
         setCurrentPlanId(planIdToUse);
+        setOriginalCreatedAt(plan.createdAt);
     }
 
     setSubmitted(true);

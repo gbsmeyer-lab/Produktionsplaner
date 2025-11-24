@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
@@ -340,6 +339,11 @@ export const TeacherDashboard: React.FC = () => {
           <div className="text-right">
              <div className="text-sm text-gray-500 dark:text-gray-400">Erstellt am</div>
              <div className="font-medium dark:text-gray-200">{new Date(plan.createdAt).toLocaleDateString('de-DE')}</div>
+             {plan.updatedAt && (
+                 <div className="text-xs text-gray-400 mt-1">
+                     (Änderung: {new Date(plan.updatedAt).toLocaleDateString('de-DE')})
+                 </div>
+             )}
           </div>
         </div>
 
@@ -724,6 +728,14 @@ export const TeacherDashboard: React.FC = () => {
                                     <p className="truncate" title={plan.locations.map(l => l.address).join(', ')}>
                                         {plan.locations.length} Drehorte
                                     </p>
+                                </div>
+
+                                <div className="text-xs text-gray-400 dark:text-gray-500 mt-3 pt-2 border-t dark:border-slate-700/50 flex items-center gap-1">
+                                    <Clock size={12}/>
+                                    {plan.updatedAt 
+                                        ? `Aktualisiert: ${new Date(plan.updatedAt).toLocaleDateString('de-DE')}`
+                                        : `Erstellt: ${new Date(plan.createdAt).toLocaleDateString('de-DE')}`
+                                    }
                                 </div>
                             </div>
 
