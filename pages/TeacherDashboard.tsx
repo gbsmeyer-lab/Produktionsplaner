@@ -340,6 +340,14 @@ export const TeacherDashboard: React.FC = () => {
           <div className="text-right">
              <div className="text-sm text-gray-500 dark:text-gray-400">Erstellt am</div>
              <div className="font-medium dark:text-gray-200">{new Date(plan.createdAt).toLocaleDateString('de-DE')}</div>
+             {plan.id !== shootPlans.find(p => p.id === plan.id)?.id /* Force re-render if updated? No, just check types */ }
+             {/* Note: plan is derived from state, so it is current. Check for updatedAt */}
+             {/* Using 'any' cast to access extended type if not strictly updated in type def locally in this scope, but it is in store types */}
+             {(plan as any).updatedAt && (
+                <div className="text-xs text-gray-400 mt-1">
+                    Aktualisiert: {new Date((plan as any).updatedAt).toLocaleDateString('de-DE')}
+                </div>
+             )}
           </div>
         </div>
 
@@ -668,12 +676,26 @@ export const TeacherDashboard: React.FC = () => {
                      const isComplete = booking.status === 'returned';
                      const isPacked = booking.status === 'packed';
                      const isActive = booking.status === 'active';
+                     const isPending = booking.status === 'pending';
                      
-                     // Determine status color
-                     let statusColor = 'bg-yellow-400';
-                     if (isPacked) statusColor = 'bg-orange-500';
-                     if (isActive) statusColor = 'bg-green-500';
-                     if (isComplete) statusColor = 'bg-gray-400';
+                     // Determine status visualization to match buttons
+                     let statusColor = 'bg-gray-400';
+                     let statusText = 'Zurückgegeben';
+                     let statusTextColor = 'text-gray-500 dark:text-gray-400';
+
+                     if (isPending) {
+                        statusColor = 'bg-orange-500';
+                        statusText = 'Noch Packen';
+                        statusTextColor = 'text-orange-600 dark:text-orange-400';
+                     } else if (isPacked) {
+                        statusColor = 'bg-yellow-500';
+                        statusText = 'Gepackt';
+                        statusTextColor = 'text-yellow-600 dark:text-yellow-400';
+                     } else if (isActive) {
+                        statusColor = 'bg-green-500';
+                        statusText = 'Ausgegeben';
+                        statusTextColor = 'text-green-600 dark:text-green-400';
+                     }
 
                      return (
                          <div key={booking.id} className={cardClass}>
@@ -695,7 +717,7 @@ export const TeacherDashboard: React.FC = () => {
                                 </div>
                                 <div className="text-right flex flex-col items-end gap-1">
                                     <span className={`inline-block w-3 h-3 rounded-full ${statusColor}`}></span>
-                                    {isPacked && <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold uppercase">Gepackt</span>}
+                                    <span className={`text-[10px] font-bold uppercase ${statusTextColor}`}>{statusText}</span>
                                 </div>
                             </div>
                             
@@ -704,6 +726,13 @@ export const TeacherDashboard: React.FC = () => {
                                     <Calendar size={16} className="mt-0.5 shrink-0"/>
                                     <div>
                                         <p>Rückgabe: <span className="font-medium text-slate-900 dark:text-white">{plan.returnDate ? new Date(plan.returnDate).toLocaleDateString('de-DE') : 'N/A'}</span></p>
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            {/* Show Created or Updated date */}
+                                            {(plan as any).updatedAt 
+                                                ? `Geändert: ${new Date((plan as any).updatedAt).toLocaleDateString('de-DE')}`
+                                                : `Erstellt: ${new Date(plan.createdAt).toLocaleDateString('de-DE')}`
+                                            }
+                                        </div>
                                     </div>
                                 </div>
                                 
