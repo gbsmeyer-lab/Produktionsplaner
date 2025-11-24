@@ -62,7 +62,6 @@ export interface ShootPlan {
   returnDate: string;
   storageDates: string[]; // Days where gear is stored at school but not returned
   createdAt: number;
-  updatedAt?: number; // New: Track last modification
 }
 
 export interface BookingItem {
