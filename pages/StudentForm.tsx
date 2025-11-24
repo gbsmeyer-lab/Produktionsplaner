@@ -489,7 +489,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, extern
                         className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
                     >
                         <RefreshCw size={16}/>
-                        Neues Formular
+                        Neu beginnen
                     </button>
                 </div>
             </div>
