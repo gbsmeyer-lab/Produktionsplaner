@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useApp } from '../services/store';
 import { Lock, LogOut, Sun, Moon, Wand2, Loader2 } from 'lucide-react';
@@ -17,7 +16,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
       <header className="bg-slate-900 dark:bg-slate-950 text-white shadow-md print:hidden">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Produktionsplaner_beta</h1>
+            <h1 className="text-xl font-bold tracking-tight">MediaPlaner_beta</h1>
             <p className="text-xs text-slate-400">Mediengestaltung Bild und Ton</p>
           </div>
           <div className="flex items-center gap-4">
