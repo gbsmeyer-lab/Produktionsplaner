@@ -4,7 +4,7 @@ import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
 import { SignatureCanvas } from '../components/SignatureCanvas';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, CheckSquare, Plus, Check, Filter, Package, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, PenTool, X } from 'lucide-react';
 
 export const TeacherDashboard: React.FC = () => {
   const { bookings, shootPlans, inventory, updateBooking, deleteShootPlan, addInventoryItem, updateInventoryItem, getAvailableCount } = useApp();
@@ -708,74 +708,49 @@ export const TeacherDashboard: React.FC = () => {
                                 </div>
                                 
                                 {(plan.storageDates || []).length > 0 && (
-                                    <div className="flex items-start gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded border border-orange-100 dark:border-orange-800">
+                                    <div className="flex items-start gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/10 p-2 rounded">
                                         <Package size={16} className="mt-0.5 shrink-0"/>
                                         <div>
                                             <p className="font-bold text-xs uppercase">Zwischenlagerung</p>
-                                            <p className="font-medium">
-                                                {(plan.storageDates || []).map(d => new Date(d).toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'})).join(', ')}
-                                            </p>
+                                            <p>{(plan.storageDates || []).map(d => new Date(d).toLocaleDateString('de-DE')).join(', ')}</p>
                                         </div>
                                     </div>
                                 )}
-
-                                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                                    <MapPin size={16} />
-                                    <p className="truncate" title={plan.locations.map(l => l.address).join(', ')}>
-                                        {plan.locations.length} Drehorte
-                                    </p>
-                                </div>
                             </div>
 
-                            <div className="p-3 bg-gray-50 dark:bg-slate-700/50 border-t dark:border-slate-600 grid grid-cols-4 gap-2">
+                            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 border-t dark:border-slate-600 flex justify-between items-center">
                                 <button 
                                     onClick={() => { setSelectedBooking(booking); setView('details'); }}
-                                    className="col-span-2 bg-white dark:bg-slate-800 border border-fuchsia-500 dark:border-fuchsia-500 text-fuchsia-700 dark:text-white py-2 rounded text-sm font-medium hover:bg-fuchsia-50 dark:hover:bg-slate-700 flex justify-center items-center gap-1 transition-colors"
+                                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm font-medium"
                                 >
-                                    <Clock size={16}/> Drehdaten
-                                </button>
-                                <button
-                                    onClick={() => { setSelectedBooking(booking); setView('handover'); }}
-                                    disabled={isComplete}
-                                    className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${
-                                        isComplete
-                                            ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed'
-                                            : isActive
-                                                ? 'bg-green-600 text-white hover:bg-green-700'
-                                                : isPacked
-                                                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                                                    : 'bg-orange-500 text-white hover:bg-orange-600'
-                                    }`}
-                                >
-                                    {isActive || isComplete ? <CheckSquare size={16}/> : (isPacked ? <Package size={16}/> : <AlertCircle size={16}/>)}
-                                    {isActive || isComplete ? 'Ausgegeben' : (isPacked ? 'Übergabe' : 'Packen')}
+                                    Details
                                 </button>
                                 
-                                {(booking.status === 'active' || booking.status === 'returned' || booking.status === 'packed') && (
-                                    <>
+                                <div className="flex gap-2">
+                                     <button 
+                                        onClick={() => setBookingToDelete(booking)}
+                                        className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded transition-colors"
+                                        title="Löschen"
+                                    >
+                                        <AlertTriangle size={18} />
+                                    </button>
+
+                                    {isComplete ? (
                                         <button 
                                             onClick={() => { setSelectedBooking(booking); setView('return'); }}
-                                            disabled={isComplete || isPacked}
-                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                            className="bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-500 transition-colors"
                                         >
-                                            <ArrowDownCircle size={16}/> Rückgabe
+                                            Archiv
                                         </button>
+                                    ) : (
                                         <button 
-                                            onClick={() => handleOpenPrintWindow(booking)}
-                                            className="col-span-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 py-2 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-500 flex justify-center items-center transition-colors"
-                                            title="Lieferschein PDF / Drucken"
+                                            onClick={() => { setSelectedBooking(booking); setView(isActive || isComplete ? 'return' : 'handover'); }}
+                                            className={`px-3 py-1.5 rounded text-sm font-medium text-white transition-colors ${isActive ? 'bg-slate-800 dark:bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                                         >
-                                            <Printer size={16}/>
+                                            {isActive ? 'Rücknahme' : 'Ausgabe'}
                                         </button>
-                                    </>
-                                )}
-                                
-                                <button 
-                                    onClick={() => setBookingToDelete(booking)}
-                                    className="col-span-4 mt-1 py-1 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex justify-center items-center gap-1"
-                                >
-                                    <Trash2 size={12}/> Projekt Löschen
-                                </button>
+                                    )}
+                                </div>
                             </div>
                          </div>
                      );
@@ -786,232 +761,187 @@ export const TeacherDashboard: React.FC = () => {
       )}
 
       {view === 'inventory' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 transition-colors duration-200">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 dark:text-white"><Box /> Inventar Verwaltung</h2>
-            
-            <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg mb-8 border dark:border-slate-600">
-                <h3 className="font-bold text-sm uppercase text-slate-500 dark:text-slate-400 mb-3">Neues Gerät hinzufügen</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div>
-                        <label className="block text-xs mb-1 dark:text-gray-300">Kategorie</label>
-                        {isNewItemCustomCat ? (
-                            <div className="flex gap-1">
-                                <input 
-                                    type="text" 
-                                    className={inputClass}
-                                    value={newItem.category}
-                                    placeholder="Neue Kategorie"
-                                    onChange={e => setNewItem({...newItem, category: e.target.value})}
-                                    autoFocus
-                                />
-                                <button onClick={() => { setIsNewItemCustomCat(false); setNewItem({...newItem, category: uniqueCategories[0]}); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><X size={16}/></button>
-                            </div>
-                        ) : (
-                            <select 
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-100 dark:border-slate-700 overflow-hidden animate-fade-in">
+           <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-xl font-bold dark:text-white">Inventarverwaltung</h2>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{inventory.length} Gegenstände</div>
+           </div>
+           
+           {/* Add New Item */}
+           <div className="p-6 bg-slate-50 dark:bg-slate-700/30 border-b dark:border-slate-700">
+              <h3 className="text-sm font-bold uppercase text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2"><Plus size={16}/> Neues Gerät hinzufügen</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                 <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kategorie</label>
+                    {isNewItemCustomCat ? (
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                placeholder="Neue Kategorie"
                                 className={inputClass}
                                 value={newItem.category}
-                                onChange={e => {
-                                    if(e.target.value === 'NEW_CAT_OPTION') setIsNewItemCustomCat(true);
-                                    else setNewItem({...newItem, category: e.target.value});
-                                }}
-                            >
-                                {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                                <option value="NEW_CAT_OPTION" className="font-bold text-blue-600">+ Neue Kategorie...</option>
-                            </select>
-                        )}
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-xs mb-1 dark:text-gray-300">Bezeichnung</label>
-                        <input 
-                            type="text" 
+                                onChange={e => setNewItem({...newItem, category: e.target.value})}
+                            />
+                            <button onClick={() => setIsNewItemCustomCat(false)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Liste</button>
+                        </div>
+                    ) : (
+                        <select 
                             className={inputClass}
-                            value={newItem.name}
-                            onChange={e => setNewItem({...newItem, name: e.target.value})}
-                            placeholder="z.B. Sony A7S III"
-                        />
-                    </div>
-                    <div>
-                         <label className="block text-xs mb-1 dark:text-gray-300">Anzahl</label>
-                         <input 
+                            value={newItem.category}
+                            onChange={e => {
+                                if (e.target.value === 'CUSTOM') setIsNewItemCustomCat(true);
+                                else setNewItem({...newItem, category: e.target.value});
+                            }}
+                        >
+                            {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                            <option value="CUSTOM">+ Neue Kategorie...</option>
+                        </select>
+                    )}
+                 </div>
+                 <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bezeichnung</label>
+                    <input 
+                        type="text" 
+                        placeholder="Gerätename / Modell"
+                        className={inputClass}
+                        value={newItem.name}
+                        onChange={e => setNewItem({...newItem, name: e.target.value})}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bestand</label>
+                    <div className="flex gap-2">
+                        <input 
                             type="number" 
+                            min="1"
                             className={inputClass}
                             value={newItem.totalStock}
-                            onChange={e => setNewItem({...newItem, totalStock: parseInt(e.target.value)})}
+                            onChange={e => setNewItem({...newItem, totalStock: parseInt(e.target.value) || 0})}
                         />
+                        <button 
+                            onClick={handleAddItem}
+                            disabled={!newItem.name}
+                            className="bg-green-600 text-white px-4 rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                            <Plus size={20}/>
+                        </button>
                     </div>
-                </div>
-                <div className="mt-3">
-                     <label className="block text-xs mb-1 dark:text-gray-300">Link (Optional)</label>
-                     <input 
-                        type="text" 
-                        className={inputClass}
-                        value={newItem.link || ''}
-                        onChange={e => setNewItem({...newItem, link: e.target.value})}
-                        placeholder="https://..."
-                    />
-                </div>
-                <button 
-                    onClick={handleAddItem}
-                    className="mt-4 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 flex items-center gap-2"
-                >
-                    <Plus size={16} /> Hinzufügen
-                </button>
-            </div>
+                 </div>
+              </div>
+           </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-100 dark:bg-slate-700 border-b dark:border-slate-600">
-                        <tr>
-                            <th className="p-3 dark:text-white">Kategorie</th>
-                            <th className="p-3 dark:text-white">Gerät</th>
-                            <th className="p-3 text-center dark:text-white">Gesamtbestand</th>
-                            <th className="p-3 text-center dark:text-white">Verfügbar</th>
-                            <th className="p-3 dark:text-white">Anmerkungen (Dauerhaft)</th>
-                            <th className="p-3 text-right dark:text-white">Aktion</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y dark:divide-slate-700">
-                        {inventory.map(item => (
-                            <tr key={item.id} className="border-b dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                                <td className="p-3 text-gray-500 dark:text-gray-400">{item.category}</td>
-                                <td className="p-3 font-medium dark:text-gray-200">{item.name}</td>
-                                <td className="p-3 text-center font-bold dark:text-white">{item.totalStock}</td>
-                                <td className="p-3 text-center text-blue-600 dark:text-blue-400">
-                                    {getAvailableCount(item.id)} 
-                                </td>
-                                <td className="p-3">
+           {/* Inventory List */}
+           <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                    <tr className="bg-gray-50 dark:bg-slate-700 border-b dark:border-slate-600 text-gray-500 dark:text-gray-400">
+                        <th className="p-4 font-medium">Kategorie</th>
+                        <th className="p-4 font-medium">Bezeichnung</th>
+                        <th className="p-4 font-medium w-32 text-center">Gesamt</th>
+                        <th className="p-4 font-medium w-32 text-center">Verfügbar</th>
+                        <th className="p-4 font-medium w-24">Edit</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-slate-700">
+                    {inventory.map(item => {
+                        const available = getAvailableCount(item.id);
+                        const isEditing = editingItem?.id === item.id;
+
+                        if (isEditing) {
+                            return (
+                                <tr key={item.id} className="bg-blue-50 dark:bg-blue-900/20">
+                                    <td className="p-4">
+                                        {isEditingCustomCat ? (
+                                            <input 
+                                                className={inputClass} 
+                                                value={editingItem.category} 
+                                                onChange={e => setEditingItem({...editingItem, category: e.target.value})}
+                                            />
+                                        ) : (
+                                            <select 
+                                                className={inputClass}
+                                                value={editingItem.category}
+                                                onChange={e => {
+                                                    if(e.target.value === 'CUSTOM') setIsEditingCustomCat(true);
+                                                    else setEditingItem({...editingItem, category: e.target.value});
+                                                }}
+                                            >
+                                                {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                                                <option value="CUSTOM">+ Neu...</option>
+                                            </select>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        <input 
+                                            className={inputClass} 
+                                            value={editingItem.name} 
+                                            onChange={e => setEditingItem({...editingItem, name: e.target.value})}
+                                        />
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        <input 
+                                            type="number" 
+                                            className={`${inputClass} text-center`}
+                                            value={editingItem.totalStock} 
+                                            onChange={e => setEditingItem({...editingItem, totalStock: parseInt(e.target.value) || 0})}
+                                        />
+                                    </td>
+                                    <td className="p-4 text-center text-gray-400">-</td>
+                                    <td className="p-4">
+                                        <div className="flex gap-2">
+                                            <button onClick={handleUpdateItem} className="text-green-600 hover:bg-green-100 p-1 rounded"><Check size={16}/></button>
+                                            <button onClick={() => setEditingItem(null)} className="text-red-600 hover:bg-red-100 p-1 rounded"><X size={16}/></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        }
+
+                        return (
+                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                                <td className="p-4 text-gray-500 dark:text-gray-400">{item.category}</td>
+                                <td className="p-4 dark:text-gray-200">
+                                    {item.name}
                                     {item.maintenanceNotes && (
-                                        <span className="text-red-600 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded text-xs border border-red-200 dark:border-red-800">
-                                            {item.maintenanceNotes}
-                                        </span>
+                                        <div className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                                            <AlertTriangle size={10}/> {item.maintenanceNotes}
+                                        </div>
                                     )}
                                 </td>
-                                <td className="p-3 text-right">
+                                <td className="p-4 text-center font-medium dark:text-gray-200">{item.totalStock}</td>
+                                <td className="p-4 text-center">
+                                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                        available > 0 
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                                        : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                    }`}>
+                                        {available}
+                                    </span>
+                                </td>
+                                <td className="p-4">
                                     <button 
-                                        onClick={() => setEditingItem(item)}
-                                        className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 p-1"
-                                        title="Bearbeiten"
+                                        onClick={() => { setEditingItem(item); setIsEditingCustomCat(false); }}
+                                        className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                                     >
-                                        <Edit size={16} />
+                                        <PenTool size={16} />
                                     </button>
                                 </td>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        );
+                    })}
+                </tbody>
+              </table>
+           </div>
         </div>
       )}
 
-      {/* Edit Item Modal */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative transition-colors duration-200 animate-in fade-in zoom-in-95">
-                <button 
-                  onClick={() => { setEditingItem(null); setIsEditingCustomCat(false); }}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  <X size={20} />
-                </button>
-                <h2 className="text-xl font-bold mb-6 dark:text-white flex items-center gap-2"><Edit size={20}/> Item Bearbeiten</h2>
-                
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs mb-1 dark:text-gray-300">Kategorie</label>
-                         {isEditingCustomCat ? (
-                            <div className="flex gap-1">
-                                <input 
-                                    type="text" 
-                                    className={inputClass}
-                                    value={editingItem.category}
-                                    placeholder="Neue Kategorie"
-                                    onChange={e => setEditingItem({...editingItem, category: e.target.value})}
-                                    autoFocus
-                                />
-                                <button onClick={() => { setIsEditingCustomCat(false); setEditingItem({...editingItem, category: uniqueCategories[0]}); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><X size={16}/></button>
-                            </div>
-                        ) : (
-                            <select 
-                                className={inputClass}
-                                value={editingItem.category}
-                                onChange={e => {
-                                    if(e.target.value === 'NEW_CAT_OPTION') setIsEditingCustomCat(true);
-                                    else setEditingItem({...editingItem, category: e.target.value});
-                                }}
-                            >
-                                {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                                <option value="NEW_CAT_OPTION" className="font-bold text-blue-600">+ Neue Kategorie...</option>
-                            </select>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-xs mb-1 dark:text-gray-300">Bezeichnung</label>
-                        <input 
-                            type="text" 
-                            className={inputClass}
-                            value={editingItem.name}
-                            onChange={e => setEditingItem({...editingItem, name: e.target.value})}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                             <label className="block text-xs mb-1 dark:text-gray-300">Gesamtbestand</label>
-                             <input 
-                                type="number" 
-                                className={inputClass}
-                                value={editingItem.totalStock}
-                                onChange={e => setEditingItem({...editingItem, totalStock: parseInt(e.target.value)})}
-                            />
-                        </div>
-                    </div>
-
-                     <div>
-                         <label className="block text-xs mb-1 dark:text-gray-300">Link</label>
-                         <input 
-                            type="text" 
-                            className={inputClass}
-                            value={editingItem.link || ''}
-                            onChange={e => setEditingItem({...editingItem, link: e.target.value})}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-xs mb-1 dark:text-gray-300">Dauerhafte Anmerkung (Defekt etc.)</label>
-                         <input 
-                            type="text" 
-                            className={inputClass}
-                            value={editingItem.maintenanceNotes || ''}
-                            onChange={e => setEditingItem({...editingItem, maintenanceNotes: e.target.value})}
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-8 flex justify-end gap-3">
-                    <button 
-                        onClick={() => { setEditingItem(null); setIsEditingCustomCat(false); }}
-                        className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
-                    >
-                        Abbrechen
-                    </button>
-                    <button 
-                        onClick={handleUpdateItem}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
-                    >
-                        Speichern
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
-
+      {/* Delete Confirmation Modal */}
       <ConfirmModal 
-        isOpen={!!bookingToDelete} 
-        onClose={() => setBookingToDelete(null)} 
-        onConfirm={confirmDelete} 
-        title="Projekt unwiderruflich löschen?" 
-        message={`Möchten Sie das Projekt "${bookingToDelete ? getPlan(bookingToDelete.planId)?.className : ''} - Gruppe ${bookingToDelete ? getPlan(bookingToDelete.planId)?.groupLetter : ''}" wirklich löschen?`} 
+        isOpen={!!bookingToDelete}
+        onClose={() => setBookingToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Buchung löschen?"
+        message="Möchten Sie diesen Vorgang wirklich löschen? Dies kann nicht rückgängig gemacht werden."
       />
     </div>
   );
