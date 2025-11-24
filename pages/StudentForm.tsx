@@ -1,21 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Printer, Edit, RefreshCw, AlertTriangle, X, Pen } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
+  externalLoadCode?: string | null;
 }
 
-export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
+export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, externalLoadCode }) => {
   const { inventory, createShootPlan, updateFullPlan, getAvailableCount, loadPlanByCode, checkShootPlanConflict, deleteShootPlan } = useApp();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitted, setSubmitted] = useState(false);
-
-  // Loading State
-  const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Edit State
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
@@ -64,6 +60,52 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     }
     return result;
   };
+
+  // Load from External Code (via App/Layout Button)
+  useEffect(() => {
+    if (externalLoadCode) {
+        const result = loadPlanByCode(externalLoadCode);
+        if (result.plan && result.booking) {
+             // Populate Form
+             const p = result.plan;
+             const b = result.booking;
+    
+             // Check if Classname/Project type is in enum, else set custom
+             const isClassEnum = Object.values(ClassName).includes(p.className as ClassName);
+             setClassNameSelect(isClassEnum ? p.className : 'CUSTOM');
+             if (!isClassEnum) setCustomClassName(p.className);
+    
+             const isProjEnum = Object.values(ProjectType).includes(p.projectType as ProjectType);
+             setProjectTypeSelect(isProjEnum ? p.projectType : 'CUSTOM');
+             if (!isProjEnum) setCustomProjectType(p.projectType);
+    
+             setProjectTopic(p.projectTopic || '');
+             setGroupLetter(p.groupLetter);
+             setMembers(p.members);
+             setLocations(p.locations);
+             setContactPhone(p.contactPhone);
+             setReturnDate(p.returnDate);
+             setStorageDates(p.storageDates || []);
+    
+             // Populate Cart
+             const newCart: { [id: string]: number } = {};
+             b.items.forEach(item => {
+                 if (item.requestedCount > 0) newCart[item.itemId] = item.requestedCount;
+             });
+             setCart(newCart);
+             setCustomItems(b.customItems || []);
+    
+             // Set IDs to Enable Update Mode
+             setCurrentPlanId(p.id);
+             setCurrentBookingId(b.id);
+             setEditCode(p.editCode || '');
+             
+             // UI Feedback
+             setSubmitted(false);
+             setStep(1);
+        }
+    }
+  }, [externalLoadCode, loadPlanByCode]);
 
   useEffect(() => {
     if (triggerExample && triggerExample > 0) {
@@ -151,56 +193,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
 
   const handleAddCustomItem = () => {
     setCustomItems([...customItems, { name: '', count: 1, notes: '' }]);
-  };
-
-  const handleLoadByCode = () => {
-     setLoadError(null);
-     const result = loadPlanByCode(accessCodeInput.trim());
-     
-     if (result.error) {
-         setLoadError(result.error);
-         return;
-     }
-
-     if (result.plan && result.booking) {
-         // Populate Form
-         const p = result.plan;
-         const b = result.booking;
-
-         // Check if Classname/Project type is in enum, else set custom
-         const isClassEnum = Object.values(ClassName).includes(p.className as ClassName);
-         setClassNameSelect(isClassEnum ? p.className : 'CUSTOM');
-         if (!isClassEnum) setCustomClassName(p.className);
-
-         const isProjEnum = Object.values(ProjectType).includes(p.projectType as ProjectType);
-         setProjectTypeSelect(isProjEnum ? p.projectType : 'CUSTOM');
-         if (!isProjEnum) setCustomProjectType(p.projectType);
-
-         setProjectTopic(p.projectTopic || '');
-         setGroupLetter(p.groupLetter);
-         setMembers(p.members);
-         setLocations(p.locations);
-         setContactPhone(p.contactPhone);
-         setReturnDate(p.returnDate);
-         setStorageDates(p.storageDates || []);
-
-         // Populate Cart
-         const newCart: { [id: string]: number } = {};
-         b.items.forEach(item => {
-             if (item.requestedCount > 0) newCart[item.itemId] = item.requestedCount;
-         });
-         setCart(newCart);
-         setCustomItems(b.customItems || []);
-
-         // Set IDs to Enable Update Mode
-         setCurrentPlanId(p.id);
-         setCurrentBookingId(b.id);
-         setEditCode(p.editCode || '');
-         
-         // UI Feedback
-         setStep(1);
-         setAccessCodeInput('');
-     }
   };
 
   const executeSubmit = async () => {
@@ -531,7 +523,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                         <div className="text-3xl font-mono font-bold tracking-widest text-slate-900 dark:text-white select-all">
                             {conflictPlan.editCode}
                         </div>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Nutze diesen Code oben im Feld "Bereits geplant?", um die bestehende Buchung zu bearbeiten.</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Nutze diesen Code oben über "Buchung ändern", um die bestehende Buchung zu bearbeiten.</p>
                     </div>
 
                     <div className="flex flex-col gap-3 w-full">
@@ -539,7 +531,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                             onClick={() => setConflictPlan(null)}
                             className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium shadow"
                         >
-                            Abbrechen und Code nutzen
+                            Abbrechen
                         </button>
                         <button
                             onClick={handleOverwrite}
@@ -572,40 +564,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
       <div className="p-6">
         {step === 1 && (
           <div className="space-y-8 animate-fade-in">
-            {/* Load by Code Section */}
-            {!currentPlanId && (
-                <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-lg border border-slate-200 dark:border-slate-600 mb-6 flex flex-col sm:flex-row gap-3 items-center">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                        <KeyRound size={20} />
-                        <span>Bereits geplant?</span>
-                    </div>
-                    <div className="flex-1 w-full sm:w-auto flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="6-stelliger Code" 
-                            className={`${inputClass} uppercase tracking-widest font-mono`}
-                            value={accessCodeInput}
-                            onChange={(e) => setAccessCodeInput(e.target.value.toUpperCase())}
-                            maxLength={6}
-                        />
-                        <button 
-                            onClick={handleLoadByCode}
-                            disabled={accessCodeInput.length < 6}
-                            className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                        >
-                            <Search size={16}/> Laden
-                        </button>
-                    </div>
-                    {loadError && (
-                        <div className="w-full sm:w-auto text-red-500 text-sm flex items-center gap-1 font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded">
-                            <AlertCircle size={16}/> {loadError}
-                        </div>
-                    )}
-                </div>
-            )}
-            
+            {/* Status if editing */}
             {currentPlanId && (
-                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded text-sm text-blue-800 dark:text-blue-300 flex justify-between items-center">
+                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 rounded text-sm text-blue-800 dark:text-blue-300 flex justify-between items-center mb-6">
                      <span className="flex items-center gap-2"><Edit size={16}/> Du bearbeitest eine existierende Buchung.</span>
                      <span className="font-mono font-bold tracking-wider">{editCode}</span>
                  </div>

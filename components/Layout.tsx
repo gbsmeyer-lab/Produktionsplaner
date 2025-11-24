@@ -1,14 +1,15 @@
 import React from 'react';
 import { useApp } from '../services/store';
-import { Lock, LogOut, Sun, Moon, Wand2, Loader2 } from 'lucide-react';
+import { Lock, LogOut, Sun, Moon, Wand2, Loader2, PenLine } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   onAdminClick: () => void;
   onExampleClick?: () => void;
+  onEditClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampleClick }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampleClick, onEditClick }) => {
   const { isAdmin, logoutAdmin, isDarkMode, toggleTheme, isLoading } = useApp();
 
   return (
@@ -44,6 +45,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
               </button>
             ) : (
               <div className="flex gap-2">
+                 {onEditClick && (
+                   <button
+                     onClick={onEditClick}
+                     className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md text-sm transition-colors text-blue-300 hover:text-blue-100"
+                     title="Vorhandene Buchung laden"
+                   >
+                     <PenLine size={16} />
+                     <span className="hidden sm:inline">Buchung ändern</span>
+                   </button>
+                 )}
                  {onExampleClick && (
                    <button
                      onClick={onExampleClick}
