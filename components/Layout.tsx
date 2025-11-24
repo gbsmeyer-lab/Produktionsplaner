@@ -1,14 +1,16 @@
+
 import React from 'react';
 import { useApp } from '../services/store';
-import { Lock, LogOut, Sun, Moon, Wand2, Loader2 } from 'lucide-react';
+import { Lock, LogOut, Sun, Moon, Wand2, Loader2, KeyRound } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
   onAdminClick: () => void;
   onExampleClick?: () => void;
+  onLoadCodeClick?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampleClick }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampleClick, onLoadCodeClick }) => {
   const { isAdmin, logoutAdmin, isDarkMode, toggleTheme, isLoading } = useApp();
 
   return (
@@ -44,6 +46,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
               </button>
             ) : (
               <div className="flex gap-2">
+                 {onLoadCodeClick && (
+                    <button
+                        onClick={onLoadCodeClick}
+                        className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-blue-500 px-3 py-1.5 rounded-md text-sm transition-colors text-slate-300 hover:text-white"
+                        title="Code eingeben um bestehenden Plan zu bearbeiten"
+                    >
+                        <KeyRound size={16} />
+                        <span className="hidden sm:inline">Buchung ändern</span>
+                    </button>
+                 )}
                  {onExampleClick && (
                    <button
                      onClick={onExampleClick}
@@ -56,7 +68,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onAdminClick, onExampl
                  )}
                  <button 
                   onClick={onAdminClick}
-                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md text-sm transition-colors"
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-red-600 px-3 py-1.5 rounded-md text-sm transition-colors"
                 >
                   <Lock size={16} />
                   <span className="hidden sm:inline">Lehrer Login</span>

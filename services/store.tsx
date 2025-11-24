@@ -123,12 +123,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Theme handling (Local only)
     const savedTheme = localStorage.getItem('theme');
+    // Default to Dark if null or 'dark'
     if (savedTheme === 'light') {
       setIsDarkMode(false);
       document.documentElement.classList.remove('dark');
     } else {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
+      if (!savedTheme) localStorage.setItem('theme', 'dark');
     }
 
     return () => {

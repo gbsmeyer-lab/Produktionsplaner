@@ -2,25 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Printer, Edit, RefreshCw, KeyRound, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
+  externalCodeToLoad?: string | null;
 }
 
-export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
+export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample, externalCodeToLoad }) => {
   const { inventory, createShootPlan, updateFullPlan, getAvailableCount, loadPlanByCode, checkShootPlanConflict, deleteShootPlan } = useApp();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitted, setSubmitted] = useState(false);
-
-  // Loading State
-  const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Edit State
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [editCode, setEditCode] = useState<string>('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Conflict State
   const [conflictPlan, setConflictPlan] = useState<ShootPlan | null>(null);
@@ -64,6 +62,13 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     }
     return result;
   };
+
+  // Watch for external code trigger (from Modal in Header)
+  useEffect(() => {
+    if (externalCodeToLoad) {
+        handleLoadByCode(externalCodeToLoad);
+    }
+  }, [externalCodeToLoad]);
 
   useEffect(() => {
     if (triggerExample && triggerExample > 0) {
@@ -153,12 +158,15 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     setCustomItems([...customItems, { name: '', count: 1, notes: '' }]);
   };
 
-  const handleLoadByCode = () => {
+  const handleLoadByCode = (code: string) => {
      setLoadError(null);
-     const result = loadPlanByCode(accessCodeInput.trim());
+     const result = loadPlanByCode(code.trim());
      
      if (result.error) {
          setLoadError(result.error);
+         // Clear edit state just in case
+         setCurrentPlanId(null);
+         setCurrentBookingId(null);
          return;
      }
 
@@ -199,7 +207,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
          
          // UI Feedback
          setStep(1);
-         setAccessCodeInput('');
+         setSubmitted(false);
      }
   };
 
@@ -531,7 +539,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                         <div className="text-3xl font-mono font-bold tracking-widest text-slate-900 dark:text-white select-all">
                             {conflictPlan.editCode}
                         </div>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Nutze diesen Code oben im Feld "Bereits geplant?", um die bestehende Buchung zu bearbeiten.</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Nutze diesen Code über den "Code laden" Button, um die bestehende Buchung zu bearbeiten.</p>
                     </div>
 
                     <div className="flex flex-col gap-3 w-full">
@@ -539,7 +547,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                             onClick={() => setConflictPlan(null)}
                             className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium shadow"
                         >
-                            Abbrechen und Code nutzen
+                            Abbrechen
                         </button>
                         <button
                             onClick={handleOverwrite}
@@ -572,35 +580,10 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
       <div className="p-6">
         {step === 1 && (
           <div className="space-y-8 animate-fade-in">
-            {/* Load by Code Section */}
-            {!currentPlanId && (
-                <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-lg border border-slate-200 dark:border-slate-600 mb-6 flex flex-col sm:flex-row gap-3 items-center">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                        <KeyRound size={20} />
-                        <span>Bereits geplant?</span>
-                    </div>
-                    <div className="flex-1 w-full sm:w-auto flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="6-stelliger Code" 
-                            className={`${inputClass} uppercase tracking-widest font-mono`}
-                            value={accessCodeInput}
-                            onChange={(e) => setAccessCodeInput(e.target.value.toUpperCase())}
-                            maxLength={6}
-                        />
-                        <button 
-                            onClick={handleLoadByCode}
-                            disabled={accessCodeInput.length < 6}
-                            className="bg-slate-800 text-white px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                        >
-                            <Search size={16}/> Laden
-                        </button>
-                    </div>
-                    {loadError && (
-                        <div className="w-full sm:w-auto text-red-500 text-sm flex items-center gap-1 font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded">
-                            <AlertCircle size={16}/> {loadError}
-                        </div>
-                    )}
+            {/* Alert if Error Loading */}
+            {loadError && (
+                <div className="w-full text-red-500 text-sm flex items-center gap-2 font-medium bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-lg border border-red-200 dark:border-red-800 mb-6">
+                    <AlertCircle size={20}/> {loadError}
                 </div>
             )}
             
