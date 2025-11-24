@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
@@ -722,25 +721,39 @@ export const TeacherDashboard: React.FC = () => {
                             </div>
                             
                             <div className="p-4 space-y-3 text-sm">
+                                {/* 1. Buchung vom */}
                                 <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
-                                    <Calendar size={16} className="mt-0.5 shrink-0"/>
+                                    <Clock size={16} className="mt-0.5 shrink-0"/>
                                     <div>
-                                        <p>Rückgabe: <span className="font-medium text-slate-900 dark:text-white">{plan.returnDate ? new Date(plan.returnDate).toLocaleDateString('de-DE') : 'N/A'}</span></p>
-                                        <div className="text-xs text-gray-400 mt-1">
-                                            {/* Show Created or Updated date */}
+                                        <p className="font-bold text-xs uppercase text-gray-500 dark:text-gray-400">Buchung vom:</p>
+                                        <p className="font-medium text-slate-900 dark:text-white">
                                             {(plan as any).updatedAt 
-                                                ? `Geändert: ${new Date((plan as any).updatedAt).toLocaleDateString('de-DE')}`
-                                                : `Erstellt: ${new Date(plan.createdAt).toLocaleDateString('de-DE')}`
+                                                ? `${new Date((plan as any).updatedAt).toLocaleDateString('de-DE')}`
+                                                : `${new Date(plan.createdAt).toLocaleDateString('de-DE')}`
                                             }
-                                        </div>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* 2. Erster Drehtag */}
+                                <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
+                                    <MapPin size={16} className="mt-0.5 shrink-0"/>
+                                    <div>
+                                        <p className="font-bold text-xs uppercase text-gray-500 dark:text-gray-400">Erster Drehtag:</p>
+                                        <p className="font-medium text-slate-900 dark:text-white">
+                                            {plan.locations.length > 0 && plan.locations[0].date 
+                                                ? new Date(plan.locations[0].date).toLocaleDateString('de-DE') 
+                                                : '-'}
+                                        </p>
                                     </div>
                                 </div>
                                 
+                                {/* 3. Zwischenlagerung */}
                                 {(plan.storageDates || []).length > 0 && (
                                     <div className="flex items-start gap-2 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded border border-orange-100 dark:border-orange-800">
                                         <Package size={16} className="mt-0.5 shrink-0"/>
                                         <div>
-                                            <p className="font-bold text-xs uppercase">Zwischenlagerung</p>
+                                            <p className="font-bold text-xs uppercase">Zwischenlagerung:</p>
                                             <p className="font-medium">
                                                 {(plan.storageDates || []).map(d => new Date(d).toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'})).join(', ')}
                                             </p>
@@ -748,11 +761,15 @@ export const TeacherDashboard: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                                    <MapPin size={16} />
-                                    <p className="truncate" title={plan.locations.map(l => l.address).join(', ')}>
-                                        {plan.locations.length} Drehorte
-                                    </p>
+                                {/* 4. Rückgabe */}
+                                <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
+                                    <ArrowDownCircle size={16} className="mt-0.5 shrink-0"/>
+                                    <div>
+                                        <p className="font-bold text-xs uppercase text-gray-500 dark:text-gray-400">Rückgabe:</p>
+                                        <p className="font-medium text-slate-900 dark:text-white">
+                                            {plan.returnDate ? new Date(plan.returnDate).toLocaleDateString('de-DE') : 'N/A'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -777,7 +794,7 @@ export const TeacherDashboard: React.FC = () => {
                                     }`}
                                 >
                                     {isActive || isComplete ? <CheckSquare size={16}/> : (isPacked ? <Package size={16}/> : <AlertCircle size={16}/>)}
-                                    {isActive || isComplete ? 'Ausgegeben' : (isPacked ? 'Übergabe' : 'Packen')}
+                                    Technik
                                 </button>
                                 
                                 {(booking.status === 'active' || booking.status === 'returned' || booking.status === 'packed') && (
@@ -785,16 +802,16 @@ export const TeacherDashboard: React.FC = () => {
                                         <button 
                                             onClick={() => { setSelectedBooking(booking); setView('return'); }}
                                             disabled={isComplete || isPacked}
-                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                            className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                                         >
                                             <ArrowDownCircle size={16}/> Rückgabe
                                         </button>
                                         <button 
                                             onClick={() => handleOpenPrintWindow(booking)}
-                                            className="col-span-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 py-2 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-500 flex justify-center items-center transition-colors"
+                                            className="col-span-2 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200 py-2 rounded text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-500 flex justify-center items-center gap-1 transition-colors"
                                             title="Lieferschein PDF / Drucken"
                                         >
-                                            <Printer size={16}/>
+                                            <Printer size={16}/> Packliste
                                         </button>
                                     </>
                                 )}
