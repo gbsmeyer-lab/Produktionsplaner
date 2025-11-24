@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
@@ -721,20 +722,6 @@ export const TeacherDashboard: React.FC = () => {
                             </div>
                             
                             <div className="p-4 space-y-3 text-sm">
-                                {/* 1. Buchung vom */}
-                                <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
-                                    <Clock size={16} className="mt-0.5 shrink-0"/>
-                                    <div>
-                                        <p className="font-bold text-xs uppercase text-gray-500 dark:text-gray-400">Buchung vom:</p>
-                                        <p className="font-medium text-slate-900 dark:text-white">
-                                            {(plan as any).updatedAt 
-                                                ? `${new Date((plan as any).updatedAt).toLocaleDateString('de-DE')}`
-                                                : `${new Date(plan.createdAt).toLocaleDateString('de-DE')}`
-                                            }
-                                        </p>
-                                    </div>
-                                </div>
-
                                 {/* 2. Erster Drehtag */}
                                 <div className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
                                     <MapPin size={16} className="mt-0.5 shrink-0"/>
