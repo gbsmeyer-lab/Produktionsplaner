@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
 import { SignatureCanvas } from '../components/SignatureCanvas';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool, AlertCircle } from 'lucide-react';
+import { MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool, AlertCircle } from 'lucide-react';
 
 export const TeacherDashboard: React.FC = () => {
   const { bookings, shootPlans, inventory, updateBooking, deleteShootPlan, addInventoryItem, updateInventoryItem, getAvailableCount } = useApp();
@@ -340,8 +339,6 @@ export const TeacherDashboard: React.FC = () => {
           <div className="text-right">
              <div className="text-sm text-gray-500 dark:text-gray-400">Erstellt am</div>
              <div className="font-medium dark:text-gray-200">{new Date(plan.createdAt).toLocaleDateString('de-DE')}</div>
-             {plan.id !== shootPlans.find(p => p.id === plan.id)?.id /* Force re-render if updated? No, just check types */ }
-             {/* Note: plan is derived from state, so it is current. Check for updatedAt */}
              {/* Using 'any' cast to access extended type if not strictly updated in type def locally in this scope, but it is in store types */}
              {(plan as any).updatedAt && (
                 <div className="text-xs text-gray-400 mt-1">
