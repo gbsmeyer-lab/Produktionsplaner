@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
