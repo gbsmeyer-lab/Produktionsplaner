@@ -34,11 +34,12 @@ interface AppContextType extends AppState {
   updateFullPlan: (planId: string, bookingId: string, plan: ShootPlan, requestedItems: { itemId: string; count: number }[], customItems: CustomItem[]) => void;
   updateBooking: (booking: Booking) => void;
   deleteBooking: (bookingId: string) => void;
-  deleteShootPlan: (planId: string) => void;
+  deleteShootPlan: (planId: string) => Promise<void>;
   loginAdmin: () => void;
   logoutAdmin: () => void;
   getAvailableCount: (itemId: string, excludeBookingId?: string) => number;
   loadPlanByCode: (code: string) => LoadResult;
+  checkShootPlanConflict: (className: string, groupLetter: string, projectType: string) => ShootPlan | undefined;
   toggleTheme: () => void;
 }
 
@@ -358,6 +359,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
      return { plan, booking };
   };
 
+  const checkShootPlanConflict = (className: string, groupLetter: string, projectType: string): ShootPlan | undefined => {
+    return shootPlans.find(p => 
+      p.className === className && 
+      p.groupLetter === groupLetter && 
+      p.projectType === projectType
+    );
+  };
+
   return (
     <AppContext.Provider value={{
       inventory,
@@ -377,6 +386,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       logoutAdmin,
       getAvailableCount,
       loadPlanByCode,
+      checkShootPlanConflict,
       toggleTheme
     }}>
       {children}

@@ -4,7 +4,7 @@ import { useApp } from '../services/store';
 import { ClassName, Booking, InventoryItem, BookingItem } from '../types';
 import { SignatureCanvas } from '../components/SignatureCanvas';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool } from 'lucide-react';
+import { Calendar, MapPin, CheckSquare, Trash2, Plus, Box, Check, Filter, Package, Info, User, Phone, Clock, ArrowLeft, ArrowDownCircle, AlertTriangle, Printer, CheckCircle, Edit, X, PenTool, AlertCircle } from 'lucide-react';
 
 export const TeacherDashboard: React.FC = () => {
   const { bookings, shootPlans, inventory, updateBooking, deleteShootPlan, addInventoryItem, updateInventoryItem, getAvailableCount } = useApp();
@@ -730,23 +730,25 @@ export const TeacherDashboard: React.FC = () => {
                             <div className="p-3 bg-gray-50 dark:bg-slate-700/50 border-t dark:border-slate-600 grid grid-cols-4 gap-2">
                                 <button 
                                     onClick={() => { setSelectedBooking(booking); setView('details'); }}
-                                    className="col-span-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 py-2 rounded text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-700 flex justify-center items-center gap-1 transition-colors"
+                                    className="col-span-2 bg-white dark:bg-slate-800 border border-fuchsia-500 dark:border-fuchsia-500 text-fuchsia-700 dark:text-white py-2 rounded text-sm font-medium hover:bg-fuchsia-50 dark:hover:bg-slate-700 flex justify-center items-center gap-1 transition-colors"
                                 >
-                                    <Info size={16}/> Drehdaten
+                                    <Clock size={16}/> Drehdaten
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => { setSelectedBooking(booking); setView('handover'); }}
                                     disabled={isComplete}
-                                    className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors 
-                                      ${isComplete 
-                                        ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' 
-                                        : (isPacked 
-                                            ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                                            : 'bg-blue-600 text-white hover:bg-blue-700')
-                                      }`}
+                                    className={`col-span-2 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${
+                                        isComplete
+                                            ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed'
+                                            : isActive
+                                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                                : isPacked
+                                                    ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                                                    : 'bg-orange-500 text-white hover:bg-orange-600'
+                                    }`}
                                 >
-                                    {isActive ? <CheckSquare size={16}/> : <Package size={16}/>}
-                                    {isPacked ? 'Übergabe' : 'Ausgabe'} 
+                                    {isActive || isComplete ? <CheckSquare size={16}/> : (isPacked ? <Package size={16}/> : <AlertCircle size={16}/>)}
+                                    {isActive || isComplete ? 'Ausgegeben' : (isPacked ? 'Übergabe' : 'Packen')}
                                 </button>
                                 
                                 {(booking.status === 'active' || booking.status === 'returned' || booking.status === 'packed') && (
@@ -754,7 +756,7 @@ export const TeacherDashboard: React.FC = () => {
                                         <button 
                                             onClick={() => { setSelectedBooking(booking); setView('return'); }}
                                             disabled={isComplete || isPacked}
-                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                            className={`col-span-3 py-2 rounded text-sm font-medium flex justify-center items-center gap-1 transition-colors ${isComplete || isPacked ? 'bg-gray-200 dark:bg-slate-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                                         >
                                             <ArrowDownCircle size={16}/> Rückgabe
                                         </button>

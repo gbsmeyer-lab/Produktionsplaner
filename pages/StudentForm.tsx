@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
 }
 
 export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
-  const { inventory, createShootPlan, updateFullPlan, getAvailableCount, loadPlanByCode } = useApp();
+  const { inventory, createShootPlan, updateFullPlan, getAvailableCount, loadPlanByCode, checkShootPlanConflict, deleteShootPlan } = useApp();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitted, setSubmitted] = useState(false);
 
@@ -21,6 +21,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
   const [editCode, setEditCode] = useState<string>('');
+
+  // Conflict State
+  const [conflictPlan, setConflictPlan] = useState<ShootPlan | null>(null);
 
   // Plan State
   // We use a specific string 'CUSTOM' to denote the user wants to type manually
@@ -200,14 +203,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
      }
   };
 
-  const handleSubmit = async () => {
+  const executeSubmit = async () => {
     const finalClassName = classNameSelect === 'CUSTOM' ? customClassName : classNameSelect;
     const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
-
-    if (!finalClassName || !finalProjectType) {
-      alert("Bitte Klasse und Projektart angeben.");
-      return;
-    }
 
     let finalStorageDates = [...storageDates];
     if (tempStorageDate && !finalStorageDates.includes(tempStorageDate)) {
@@ -248,6 +246,35 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     }
 
     setSubmitted(true);
+  };
+
+  const handlePreSubmit = async () => {
+    const finalClassName = classNameSelect === 'CUSTOM' ? customClassName : classNameSelect;
+    const finalProjectType = projectTypeSelect === 'CUSTOM' ? customProjectType : projectTypeSelect;
+
+    if (!finalClassName || !finalProjectType) {
+      alert("Bitte Klasse und Projektart angeben.");
+      return;
+    }
+
+    // New Booking Conflict Check
+    if (!currentPlanId) {
+       const existingConflict = checkShootPlanConflict(finalClassName, groupLetter, finalProjectType);
+       if (existingConflict) {
+           setConflictPlan(existingConflict);
+           return;
+       }
+    }
+
+    await executeSubmit();
+  };
+
+  const handleOverwrite = async () => {
+      if (conflictPlan) {
+          await deleteShootPlan(conflictPlan.id);
+          setConflictPlan(null);
+          await executeSubmit();
+      }
   };
 
   const handleLinkClick = (url: string | undefined) => {
@@ -404,8 +431,6 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
     win.document.write(htmlContent);
     win.document.close();
     win.focus();
-    // Optional: Auto-trigger print after short delay
-    // setTimeout(() => win.print(), 500); 
   };
 
   if (submitted) {
@@ -478,6 +503,56 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
 
   return (
     <div className="print:hidden max-w-5xl mx-auto bg-white dark:bg-slate-800 shadow-lg rounded-xl overflow-hidden transition-colors duration-200">
+      
+      {/* Conflict Modal */}
+      {conflictPlan && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 relative transition-colors duration-200 animate-in fade-in zoom-in-95">
+                <button 
+                  onClick={() => setConflictPlan(null)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X size={20} />
+                </button>
+                
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-4 text-yellow-600 dark:text-yellow-400">
+                        <AlertTriangle size={32} />
+                    </div>
+                    
+                    <h2 className="text-xl font-bold mb-2 dark:text-white">Buchung existiert bereits</h2>
+                    
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                        Für <strong>{conflictPlan.className}</strong> (Gruppe {conflictPlan.groupLetter}) zum Thema <strong>{conflictPlan.projectType}</strong> wurde bereits eine Buchung angelegt.
+                    </p>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4 mb-6 w-full">
+                        <p className="text-xs text-blue-800 dark:text-blue-300 mb-2 font-medium uppercase">Vorhandener Bearbeitungs-Code:</p>
+                        <div className="text-3xl font-mono font-bold tracking-widest text-slate-900 dark:text-white select-all">
+                            {conflictPlan.editCode}
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Nutze diesen Code oben im Feld "Bereits geplant?", um die bestehende Buchung zu bearbeiten.</p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full">
+                         <button
+                            onClick={() => setConflictPlan(null)}
+                            className="w-full px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium shadow"
+                        >
+                            Abbrechen und Code nutzen
+                        </button>
+                        <button
+                            onClick={handleOverwrite}
+                            className="w-full px-4 py-3 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm"
+                        >
+                            Trotzdem überschreiben (Altes löschen)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Header Steps */}
       <div className="flex border-b dark:border-slate-700">
         <button 
@@ -918,7 +993,7 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
                 Zurück
               </button>
               <button 
-                onClick={handleSubmit}
+                onClick={handlePreSubmit}
                 disabled={Object.keys(cart).length === 0 && customItems.length === 0}
                 className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
