@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../services/store';
 import { ClassName, ProjectType, GroupLetter, ShootPlan, GroupMember, ShootLocation, CustomItem } from '../types';
-import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, MapPin, User, Phone, Save, ShoppingCart, ExternalLink, Type, Printer, Edit, RefreshCw, KeyRound, Search, AlertCircle, AlertTriangle, X, Pen } from 'lucide-react';
 
 interface StudentFormProps {
   triggerExample?: number;
@@ -675,7 +675,9 @@ export const StudentForm: React.FC<StudentFormProps> = ({ triggerExample }) => {
 
             {/* Topic Field */}
             <div>
-               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><Type size={16}/> Thema / Arbeitstitel</label>
+               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 dark:text-white">
+                 <Pen size={20} /> Thema / Arbeitstitel
+               </h3>
                <input 
                  type="text" 
                  placeholder="z.B. Dokumentation über..." 
